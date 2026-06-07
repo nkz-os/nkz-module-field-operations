@@ -1,0 +1,129 @@
+# =============================================================================
+# Field Operations Backend Deployment
+# =============================================================================
+# Backend API service for nkz-module-field-operations
+# =============================================================================
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: field-operations-backend
+  namespace: nekazari
+  labels:
+    app: field-operations-backend
+    component: backend
+    module: field-operations
+    nekazari.io/profile: addon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: field-operations-backend
+  template:
+    metadata:
+      labels:
+        app: field-operations-backend
+        component: backend
+        module: field-operations
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/nkz-os/nkz-module-field-operations:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8420
+          env:
+            - name: APP_NAME
+              value: "Field Operations"
+            - name: DEBUG
+              value: "false"
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: CORS_ORIGINS
+            - name: ORION_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: ORION_URL
+            - name: CONTEXT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: CONTEXT_URL
+            - name: CUE_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: CUE_API_URL
+            - name: FIELD_OPS_INCOMPLETE_TIMEOUT_H
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: FIELD_OPS_INCOMPLETE_TIMEOUT_H
+                  optional: true
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: MINIO_ENDPOINT
+                  optional: true
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: access-key
+                  optional: true
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: secret-key
+                  optional: true
+            - name: KEYCLOAK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: KEYCLOAK_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8420
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8420
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: field-operations-api-service
+  namespace: nekazari
+  labels:
+    app: field-operations-backend
+    module: field-operations
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8420
+      targetPort: 8420
+      protocol: TCP
+      name: http
+  selector:
+    app: field-operations-backend
