@@ -1,12 +1,10 @@
-"""API package — route registration."""
+"""API package — route registration for field-operations."""
 
 from fastapi import APIRouter
 
-from app.api.assessments import router as assessments_router
-from app.api.sources import router as sources_router
-from app.api.webhooks import router as webhooks_router
+from app.api.operations import router as operations_router
+from app.api.cue_bridge import router as cue_router
 
 router = APIRouter()
-router.include_router(assessments_router)
-router.include_router(sources_router)
-router.include_router(webhooks_router)
+router.include_router(operations_router)
+router.include_router(cue_router)
