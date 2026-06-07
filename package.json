@@ -1,11 +1,11 @@
 {
-  "name": "nekazari-module-crop-health",
+  "name": "@nekazari/module-field-operations",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/Module.tsx",
+  "main": "./src/App.tsx",
   "nkz": {
-    "moduleId": "crop-health"
+    "moduleId": "field-operations"
   },
   "scripts": {
     "dev": "vite",

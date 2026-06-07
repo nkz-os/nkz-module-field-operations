@@ -1,13 +1,22 @@
 {
   "title": "Field Operations",
   "loading": "Loading...",
+  "refresh": "Refresh",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving...",
+  "close": "Close",
   "noOperations": "No operations recorded",
+  "errorLoading": "Error loading operations",
+
   "tabs": {
     "pending": "Pending",
     "planned": "Planned",
     "history": "History",
     "cancelled": "Cancelled"
   },
+
   "operationTypes": {
     "sowing": "Sowing",
     "irrigation": "Irrigation",
@@ -16,52 +25,74 @@
     "tillage": "Tillage",
     "harvesting": "Harvesting"
   },
+
   "statuses": {
     "planned": "Planned",
-    "incomplete": "In Progress",
+    "incomplete": "In progress",
     "completed": "Completed",
-    "needs_review": "Needs Review",
+    "needs_review": "Needs review",
     "cancelled": "Cancelled"
   },
-  "machineData": "Machine Data (ISOBUS)",
-  "noMachineData": "Manual mode: no ISOBUS telemetry connected",
-  "operationData": "Operation Data",
-  "fuelUsed": "Diesel",
-  "engineHours": "Engine Hours",
-  "areaCovered": "Area Worked",
-  "cropType": "Crop",
-  "variety": "Variety",
-  "seedingRate": "Seeding Rate (kg/ha)",
-  "irrigationRegime": "Regime",
-  "irrigated": "Irrigated",
-  "rainfed": "Rainfed",
-  "waterVolume": "Water Volume (L)",
-  "waterPerHectare": "Water per Hectare (L/ha)",
-  "fertilizerType": "Fertilizer Type",
-  "fertilizerRate": "Rate (kg/ha)",
-  "fertilizerComposition": "NPK Composition",
-  "organicFertilizer": "Organic",
-  "productName": "Product Name",
-  "productRate": "Rate (kg/ha)",
-  "productRegistryRef": "Registry No. (ROPO)",
-  "applicationMethod": "Application Method",
-  "foliar": "Foliar",
-  "soil": "Soil",
-  "drip": "Drip",
-  "labelPhoto": "Label Photo",
-  "changePhoto": "Change Photo",
-  "dropOrClick": "Drag or click to upload photo",
-  "fileTooLarge": "File too large (max 10MB)",
-  "uploadError": "Error uploading photo",
-  "uploading": "Uploading...",
-  "extrapolate": "Extrapolate to Entire Parcel",
-  "parcelAreaHa": "Total Parcel Area (ha)",
-  "confirmExtrapolate": "Confirm Extrapolation",
-  "registerSiex": "Register in SIEX",
-  "save": "Save",
-  "cancel": "Cancel",
-  "saving": "Saving...",
-  "noSpecificFields": "No specific fields for this operation type",
-  "operator": "Operator",
-  "workOrder": "Work Order"
+
+  "machineData": {
+    "title": "Machine Data (ISOBUS)",
+    "fuelUsed": "Fuel consumed",
+    "engineHours": "Engine hours",
+    "areaCovered": "Area covered",
+    "noData": "Manual mode: no ISOBUS telemetry connected"
+  },
+
+  "form": {
+    "title": "Operation Data",
+    "complete": "Complete operation",
+    "readOnly": "Operation is read-only"
+  },
+
+  "fields": {
+    "cropType": "Crop (species)",
+    "variety": "Variety",
+    "seedingRate": "Seeding rate (kg/Ha)",
+    "irrigationRegime": "Irrigation regime",
+    "irrigated": "Irrigated",
+    "rainfed": "Rainfed",
+    "waterVolume": "Water volume (L)",
+    "waterPerHectare": "Water per hectare (L/Ha)",
+    "fertilizerType": "Fertilizer type",
+    "fertilizerRate": "Rate (kg/Ha)",
+    "fertilizerComposition": "Composition (NPK)",
+    "organicFertilizer": "Organic fertilizer",
+    "productName": "Product name",
+    "productRate": "Rate (kg/Ha)",
+    "productRegistryRef": "Registry ref. (ROPO)",
+    "applicationMethod": "Application method",
+    "foliar": "Foliar",
+    "soil": "Soil",
+    "drip": "Drip",
+    "noSpecificFields": "No specific fields for this operation type"
+  },
+
+  "extrapolate": {
+    "trigger": "Extrapolate to full parcel",
+    "preview": "Extrapolation preview",
+    "parcelAreaHa": "Total parcel area (Ha)",
+    "registered": "Ha recorded",
+    "total": "Ha total",
+    "values": "current values",
+    "confirm": "Confirm extrapolation"
+  },
+
+  "siex": {
+    "register": "Register in SIEX"
+  },
+
+  "photo": {
+    "label": "Label photo",
+    "uploaded": "Photo uploaded successfully",
+    "change": "Change photo",
+    "dropOrClick": "Drag or click to upload photo",
+    "fileTooLarge": "File too large (max 10 MB)",
+    "invalidType": "Invalid file type (JPG, PNG or HEIC)",
+    "uploading": "Uploading...",
+    "uploadError": "Upload failed. Please try again."
+  }
 }
