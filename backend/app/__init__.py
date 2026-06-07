@@ -1,1 +1,1 @@
-"""nekazari-module-crop-health — Async biophysical inference engine."""
+"""nkz-module-field-operations — Field operations management with ISOBUS telemetry and SIEX compliance."""
