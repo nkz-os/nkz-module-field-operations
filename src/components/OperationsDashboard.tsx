@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import OperationCard, { Operation } from './OperationCard';
+import OperationsTable from './OperationsTable';
 
 interface Tab {
   key: string;
@@ -28,6 +29,7 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
   const [activeTab, setActiveTab]   = useState<string>('pending');
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
+  const [viewMode, setViewMode]     = useState<'cards' | 'table'>('cards');
 
   const fetchOperations = useCallback(async () => {
     setLoading(true);
@@ -68,6 +70,13 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
           disabled={loading}
         >
           {t('refresh')}
+        </button>
+        <button
+          onClick={() => setViewMode(v => v === 'cards' ? 'table' : 'cards')}
+          className="text-xs text-nkz-text-muted hover:text-nkz-accent-base ml-2"
+          title={viewMode === 'cards' ? t('tableView') : t('cardView')}
+        >
+          {viewMode === 'cards' ? '📊' : '📇'}
         </button>
       </div>
 
@@ -114,6 +123,11 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
             <span className="text-2xl">📋</span>
             <p>{t('noOperations')}</p>
           </div>
+        ) : viewMode === 'table' ? (
+          <OperationsTable
+            operations={filtered}
+            onSelectOperation={onSelectOperation}
+          />
         ) : (
           <div className="flex flex-col gap-2">
             {filtered.map(op => (

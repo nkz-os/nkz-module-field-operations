@@ -7,7 +7,20 @@
   "save": "Guardar",
   "saving": "Guardando...",
   "close": "Cerrar",
+  "tableView": "Vista de Tabla",
+  "cardView": "Vista de Tarjetas",
   "noOperations": "No hay operaciones registradas",
+
+  "table": {
+    "date": "Fecha",
+    "type": "Tipo",
+    "workOrder": "Orden de Trabajo",
+    "product": "Producto",
+    "dose": "Dosis",
+    "operator": "Operario",
+    "source": "Origen",
+    "status": "Estado"
+  },
   "errorLoading": "Error al cargar operaciones",
 
   "tabs": {
@@ -68,7 +81,20 @@
     "foliar": "Foliar",
     "soil": "Al suelo",
     "drip": "Goteo",
-    "noSpecificFields": "Sin campos específicos para este tipo de operación"
+    "noSpecificFields": "Sin campos específicos para este tipo de operación",
+    "tillageType": "Tipo de labor",
+    "ploughing": "Alzar",
+    "harrowing": "Gradear",
+    "cultivating": "Cultivar",
+    "rolling": "Rodillar",
+    "subsoiling": "Subsolado",
+    "tillageDepth": "Profundidad (cm)",
+    "harvestedWeight": "Peso cosechado (kg)",
+    "moisture": "Humedad (%)",
+    "harvestDestination": "Destino",
+    "storage": "Almacén",
+    "sale": "Venta",
+    "feed": "Pienso"
   },
 
   "extrapolate": {

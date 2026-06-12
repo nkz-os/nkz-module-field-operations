@@ -13,6 +13,9 @@ MINIO_BUCKET = os.getenv("MINIO_LABELS_BUCKET", "nekazari-labels")
 INCOMPLETE_TIMEOUT_HOURS = int(os.getenv("FIELD_OPS_INCOMPLETE_TIMEOUT_H", "24"))
 LABEL_RETENTION_YEARS = 5
 
+VALID_SOURCES = ["manual", "odoo", "api", "isobus"]
+ODOO_EXTERNAL_REF_PREFIX = os.getenv("ODOO_EXTERNAL_REF_PREFIX", "ODT-")
+
 VALID_OPERATION_TYPES = [
     "sowing", "irrigation", "fertilization", "spraying", "tillage", "harvesting"
 ]

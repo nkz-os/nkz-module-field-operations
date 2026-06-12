@@ -4,6 +4,7 @@ from typing import Optional
 from .config import REQUIRED_FIELDS
 
 ALLOWED_TRANSITIONS = {
+    "issued":       ["planned", "cancelled"],  # NEW: external work order, needs manager review
     "planned":      ["incomplete", "cancelled"],
     "incomplete":   ["completed", "needs_review"],
     "needs_review": ["completed", "cancelled"],
@@ -12,6 +13,8 @@ ALLOWED_TRANSITIONS = {
 }
 
 ACTORS_FOR_TRANSITION = {
+    ("issued", "planned"):          ["field_manager", "tenant_admin", "external_api"],
+    ("issued", "cancelled"):        ["field_manager", "tenant_admin", "external_api"],
     ("planned", "incomplete"):      ["user", "field_manager", "tenant_admin", "isobus_api_key"],
     ("planned", "cancelled"):       ["field_manager", "tenant_admin"],
     ("incomplete", "completed"):    ["user", "field_manager", "tenant_admin", "isobus_api_key"],

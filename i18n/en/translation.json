@@ -7,7 +7,20 @@
   "save": "Save",
   "saving": "Saving...",
   "close": "Close",
+  "tableView": "Table View",
+  "cardView": "Card View",
   "noOperations": "No operations recorded",
+
+  "table": {
+    "date": "Date",
+    "type": "Type",
+    "workOrder": "Work Order",
+    "product": "Product",
+    "dose": "Dose",
+    "operator": "Operator",
+    "source": "Source",
+    "status": "Status"
+  },
   "errorLoading": "Error loading operations",
 
   "tabs": {
@@ -68,7 +81,20 @@
     "foliar": "Foliar",
     "soil": "Soil",
     "drip": "Drip",
-    "noSpecificFields": "No specific fields for this operation type"
+    "noSpecificFields": "No specific fields for this operation type",
+    "tillageType": "Tillage type",
+    "ploughing": "Ploughing",
+    "harrowing": "Harrowing",
+    "cultivating": "Cultivating",
+    "rolling": "Rolling",
+    "subsoiling": "Subsoiling",
+    "tillageDepth": "Depth (cm)",
+    "harvestedWeight": "Harvested weight (kg)",
+    "moisture": "Moisture (%)",
+    "harvestDestination": "Destination",
+    "storage": "Storage",
+    "sale": "Sale",
+    "feed": "Feed"
   },
 
   "extrapolate": {

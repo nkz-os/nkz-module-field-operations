@@ -15,4 +15,8 @@ export default defineModule({
   icon: 'tractor',
   main: MainPage,
   slots: {},
+  data: {
+    entities: ['AgriParcelOperation'],
+    timeseries: [],
+  },
 });

@@ -131,6 +131,43 @@ function FormFields({ operationType, form, onChange, t }: FormFieldsProps) {
           />
         </div>
       );
+    case 'tillage':
+      return (
+        <div className="grid grid-cols-1 gap-3">
+          <FieldSelect
+            label={t('fields.tillageType')}
+            field="tillageType"
+            form={form}
+            onChange={onChange}
+            options={[
+              { value: 'ploughing', label: t('fields.ploughing') },
+              { value: 'harrowing', label: t('fields.harrowing') },
+              { value: 'cultivating', label: t('fields.cultivating') },
+              { value: 'rolling', label: t('fields.rolling') },
+              { value: 'subsoiling', label: t('fields.subsoiling') },
+            ]}
+          />
+          <FieldInput label={t('fields.tillageDepth')} field="tillageDepth" type="number" form={form} onChange={onChange} t={t} />
+        </div>
+      );
+    case 'harvesting':
+      return (
+        <div className="grid grid-cols-1 gap-3">
+          <FieldInput label={t('fields.harvestedWeight')} field="harvestedWeight" type="number" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.moisture')} field="moisture" type="number" form={form} onChange={onChange} t={t} />
+          <FieldSelect
+            label={t('fields.harvestDestination')}
+            field="harvestDestination"
+            form={form}
+            onChange={onChange}
+            options={[
+              { value: 'storage', label: t('fields.storage') },
+              { value: 'sale', label: t('fields.sale') },
+              { value: 'feed', label: t('fields.feed') },
+            ]}
+          />
+        </div>
+      );
     default:
       return <p className="text-nkz-text-muted text-sm">{t('fields.noSpecificFields')}</p>;
   }

@@ -1,15 +1,15 @@
 """Orion-LD CRUD operations for AgriParcelOperation entities."""
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import httpx
+import requests
+from nkz_platform_sdk import SyncOrionClient
 
-from .config import ORION_URL, CONTEXT_URL, VALID_OPERATION_TYPES
+from .config import VALID_OPERATION_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +18,12 @@ def _build_operation_id(tenant_id: str) -> str:
     return f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{uuid.uuid4().hex[:12]}"
 
 
-def _headers(tenant_id: str, content_type: str = "application/json") -> dict:
-    return {
-        "Accept": "application/ld+json",
-        "Content-Type": content_type,
-        "Link": f'<{CONTEXT_URL}>; rel="http://www.w3.org/ns/json-ld#context"; type="application/ld+json"',
-        "NGSILD-Tenant": tenant_id,
-        "Fiware-Service": tenant_id,
-        "Fiware-ServicePath": "/",
-    }
+def _get_client(tenant_id: str) -> SyncOrionClient:
+    """Create a SyncOrionClient for the given tenant.
+
+    Reads ORION_LD_URL and CONTEXT_URL from environment (via the SDK).
+    """
+    return SyncOrionClient(tenant_id)
 
 
 def create_operation(
@@ -43,10 +40,12 @@ def create_operation(
 
     entity_id = _build_operation_id(tenant_id)
     now = datetime.now(timezone.utc).isoformat()
+    client = _get_client(tenant_id)
 
     entity = {
         "id": entity_id,
         "type": "AgriParcelOperation",
+        "@context": [client.context_url],
         "hasAgriParcel": {"type": "Relationship", "object": parcel_id},
         "operationType": {"type": "Property", "value": operation_type},
         "workOrder": {"type": "Property", "value": work_order},
@@ -55,13 +54,22 @@ def create_operation(
         "dataSource": {"type": "Property", "value": data_source},
         "dateCreated": {"type": "Property", "value": {"@type": "DateTime", "@value": now}},
         "modificationLog": {"type": "Property", "value": []},
-        "@context": [CONTEXT_URL],
     }
 
     if extra_attrs.get("tractor_id"):
         entity["usesTractor"] = {"type": "Relationship", "object": extra_attrs.pop("tractor_id")}
     if extra_attrs.get("implement_id"):
         entity["usesImplement"] = {"type": "Relationship", "object": extra_attrs.pop("implement_id")}
+
+    # Handle known attributes with specific NGSI-LD typing
+    if extra_attrs.get("planned_date"):
+        entity["plannedDate"] = {"type": "Property", "value": {"@type": "DateTime", "@value": extra_attrs.pop("planned_date")}}
+    if extra_attrs.get("assigned_to"):
+        entity["assignedTo"] = {"type": "Property", "value": extra_attrs.pop("assigned_to")}
+    if extra_attrs.get("source"):
+        entity["source"] = {"type": "Property", "value": extra_attrs.pop("source")}
+    if extra_attrs.get("external_ref"):
+        entity["externalRef"] = {"type": "Property", "value": extra_attrs.pop("external_ref")}
 
     for key, value in extra_attrs.items():
         if key in ("startedAt", "endedAt"):
@@ -73,37 +81,41 @@ def create_operation(
         else:
             entity[key] = {"type": "Property", "value": value}
 
-    resp = httpx.post(
-        f"{ORION_URL}/ngsi-ld/v1/entities",
-        json=entity,
-        headers=_headers(tenant_id, "application/ld+json"),
-        timeout=10,
-    )
-    if resp.status_code not in (200, 201, 204):
-        raise RuntimeError(f"Orion-LD create failed ({resp.status_code}): {resp.text}")
+    try:
+        client.create_entity(entity)
+    except requests.HTTPError as e:
+        raise RuntimeError(
+            f"Orion-LD create failed ({e.response.status_code}): {e.response.text}"
+        ) from e
+
     logger.info("Created AgriParcelOperation %s (status=planned)", entity_id)
     return entity
 
 
 def get_entity(tenant_id: str, entity_id: str) -> Optional[dict]:
-    resp = httpx.get(
-        f"{ORION_URL}/ngsi-ld/v1/entities/{entity_id}",
-        headers=_headers(tenant_id),
-        timeout=10,
-    )
-    if resp.status_code == 404:
-        return None
-    if resp.status_code != 200:
-        raise RuntimeError(f"Orion-LD get failed ({resp.status_code}): {resp.text}")
-    return resp.json()
+    client = _get_client(tenant_id)
+    try:
+        return client.get_entity(entity_id)
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            return None
+        raise RuntimeError(
+            f"Orion-LD get failed ({e.response.status_code}): {e.response.text}"
+        ) from e
 
 
 def update_entity_attrs(tenant_id: str, entity_id: str, attrs: dict) -> dict:
-    resp = httpx.patch(
-        f"{ORION_URL}/ngsi-ld/v1/entities/{entity_id}/attrs",
+    """PATCH /attrs on an entity.
+
+    SyncOrionClient does not have update_entity_attrs, so we use
+    the client's _session.patch directly with its header builder.
+    """
+    client = _get_client(tenant_id)
+    resp = client._session.patch(
+        client._url(f"/ngsi-ld/v1/entities/{entity_id}/attrs"),
         json=attrs,
-        headers=_headers(tenant_id, "application/json"),
-        timeout=10,
+        headers=client._headers("application/json"),
+        timeout=client.timeout,
     )
     if resp.status_code not in (200, 204):
         raise RuntimeError(f"Orion-LD patch failed ({resp.status_code}): {resp.text}")
@@ -181,15 +193,19 @@ def query_operations(
     if work_order:
         q_parts.append(f'workOrder=="{work_order}"')
 
-    params: dict = {"type": "AgriParcelOperation", "options": "keyValues", "limit": limit}
+    client = _get_client(tenant_id)
+
+    # query_entities in SyncOrionClient does not support options=keyValues,
+    # so we use _session directly for backward compatibility with callers.
+    params: dict[str, Any] = {"type": "AgriParcelOperation", "options": "keyValues", "limit": limit}
     if q_parts:
         params["q"] = ";".join(q_parts)
 
-    resp = httpx.get(
-        f"{ORION_URL}/ngsi-ld/v1/entities",
+    resp = client._session.get(
+        client._url("/ngsi-ld/v1/entities"),
         params=params,
-        headers=_headers(tenant_id),
-        timeout=10,
+        headers=client._headers("application/json"),
+        timeout=client.timeout,
     )
     if resp.status_code != 200:
         raise RuntimeError(f"Orion-LD query failed ({resp.status_code}): {resp.text}")
@@ -216,7 +232,10 @@ def extrapolate_to_full_parcel(tenant_id: str, operation_id: str, parcel_area_ha
         val = _extract_value(entity, field)
         unit = _extract_unit(entity, field)
         if val is not None:
-            update[field] = {"type": "Property", "value": round(val * factor, 2), "unitCode": unit}
+            attr = {"type": "Property", "value": round(val * factor, 2)}
+            if unit:
+                attr["unitCode"] = unit
+            update[field] = attr
 
     update["areaCovered"] = {"type": "Property", "value": parcel_area_ha, "unitCode": "HAR"}
 
@@ -247,8 +266,8 @@ def _extract_value(entity: dict, field: str) -> Optional[float]:
     return None
 
 
-def _extract_unit(entity: dict, field: str) -> str:
+def _extract_unit(entity: dict, field: str) -> str | None:
     attr = entity.get(field)
     if isinstance(attr, dict):
-        return attr.get("unitCode", "")
-    return ""
+        return attr.get("unitCode") or None
+    return None

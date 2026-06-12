@@ -1,7 +1,11 @@
 """API routes for AgriParcelOperation management."""
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
+from ..services.photo_service import upload_label_photo
+from ..services.work_order_service import create_external_work_order
 from ..state_machine import can_transition, validate_completion_fields
 from ..orion_ops import (
     create_operation, get_entity, update_entity_attrs,
@@ -77,6 +81,39 @@ async def create_field_operation(request: Request, body: dict):
     return entity
 
 
+@router.post("/work-orders")
+async def create_work_order(request: Request, body: dict):
+    """Generic API endpoint for external work orders.
+
+    Used by Odoo bridge, mobile app, or any external system.
+    Creates an AgriParcelOperation with status=issued for review.
+    """
+    tenant_id = _get_tenant(request)
+
+    required = ["parcel_id", "operation_type", "work_order", "operator"]
+    for field in required:
+        if field not in body:
+            raise HTTPException(400, f"Missing required field: {field}")
+
+    try:
+        entity = create_external_work_order(
+            tenant_id,
+            parcel_id=body["parcel_id"],
+            operation_type=body["operation_type"],
+            work_order=body["work_order"],
+            operator=body["operator"],
+            source=body.get("source", "api"),
+            external_ref=body.get("external_ref"),
+            planned_date=body.get("planned_date"),
+            assigned_to=body.get("assigned_to"),
+            **{k: v for k, v in body.items()
+               if k not in required + ["source", "external_ref", "planned_date", "assigned_to"]},
+        )
+        return entity
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.get("/operations/{operation_id}")
 async def get_field_operation(operation_id: str, request: Request):
     tenant_id = _get_tenant(request)
@@ -149,6 +186,38 @@ async def api_isobus_enrich(operation_id: str, request: Request, body: dict):
     if status == "planned":
         start_operation(tenant_id, operation_id)
     return enrich_from_isobus(tenant_id, operation_id, body)
+
+
+@router.post("/operations/{operation_id}/label-photo")
+def api_upload_label_photo(
+    operation_id: str,
+    request: Request,
+    label_photo: UploadFile = File(...),
+):
+    """Upload a label/evidence photo for an operation."""
+    tenant_id = _get_tenant(request)
+    _get_or_404(tenant_id, operation_id)
+
+    file_data = label_photo.read()
+    try:
+        url = upload_label_photo(
+            tenant_id, operation_id, file_data,
+            label_photo.filename or "photo.jpg",
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    update_entity_attrs(tenant_id, operation_id, {
+        "labelPhoto": {
+            "type": "Property",
+            "value": {
+                "url": url,
+                "uploadedAt": datetime.now(timezone.utc).isoformat(),
+            },
+        }
+    })
+
+    return {"url": url}
 
 
 @router.post("/operations/{operation_id}/extrapolate")
