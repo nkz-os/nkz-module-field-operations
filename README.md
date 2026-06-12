@@ -1,10 +1,22 @@
 # nkz-module-field-operations
 
-Field operations management for the Nekazari FIWARE platform. Records agricultural operations (sowing, irrigation, fertilization, spraying, tillage, harvesting) with ISOBUS telemetry and SIEX compliance.
+Field operations management for the Nekazari FIWARE platform. Records agricultural operations with ISOBUS telemetry, SIEX compliance, and work order integration (Odoo / external API).
+
+## Operation types
+
+| Type | Description | Key fields |
+|------|-------------|------------|
+| `sowing` | Siembra | cropType, variety, seedingRate, irrigationRegime |
+| `irrigation` | Riego | waterVolume, waterPerHectare |
+| `fertilization` | Abonado | fertilizerType, rate, NPK, organic |
+| `spraying` | Fitosanitario | productName, rate, ROPO registry, method |
+| `tillage` | Laboreo | type (ploughing, harrowing, cultivating, rolling, subsoiling, roller crimper), depth |
+| `harvesting` | Cosecha | harvestedWeight, moisture, destination |
+| `haymaking` | Henificado | swathType (tedding/raking/mowing), moisture |
+| `baling` | Enfardado | baleType (round/square), baleCount, baleWeight |
+| `scouting` | Monitorización | platform (drone/rover/satellite/manual), sensorType, coverage |
 
 ## Features
-
-- **6 operation types**: sowing, irrigation, fertilization, spraying, tillage, harvesting
 - **Dual data source**: manual entry + ISOBUS machine telemetry
 - **Work order integration**: Odoo sync via generic API (`POST /work-orders`)
 - **SIEX compliance**: register treatments in the Spanish agricultural registry
