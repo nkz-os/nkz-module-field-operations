@@ -1,6 +1,7 @@
 """FastAPI application for nkz-module-field-operations."""
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -17,7 +18,22 @@ logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI(title="NKZ Field Operations", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    logger.info("Starting NKZ Field Operations module")
+    task = asyncio.create_task(check_stale_operations())
+    logger.info("Stale operation check worker started")
+    yield
+    task.cancel()
+    logger.info("NKZ Field Operations module shutting down")
+
+
+app = FastAPI(
+    title="NKZ Field Operations",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -36,10 +52,3 @@ async def healthz():
 @limiter.exempt
 async def readyz():
     return {"status": "ready"}
-
-
-@app.on_event("startup")
-async def startup():
-    logger.info("Starting NKZ Field Operations module")
-    asyncio.create_task(check_stale_operations())
-    logger.info("Stale operation check worker started")
