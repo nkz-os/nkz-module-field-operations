@@ -199,7 +199,7 @@ def api_upload_label_photo(
     tenant_id = _get_tenant(request)
     _get_or_404(tenant_id, operation_id)
 
-    file_data = label_photo.read()
+    file_data = label_photo.file.read()
     try:
         url = upload_label_photo(
             tenant_id, operation_id, file_data,
