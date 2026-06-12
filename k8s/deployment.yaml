@@ -83,6 +83,15 @@ spec:
                   name: minio-secret
                   key: secret-key
                   optional: true
+            # Admin Platform PostgreSQL URL (for tenant discovery in background worker)
+            # Create secret: kubectl create secret generic field-operations-admin-db \
+            #   --from-literal=url=postgresql://user:pass@postgresql-service:5432/admin_platform
+            - name: ADMIN_POSTGRES_URL
+              valueFrom:
+                secretKeyRef:
+                  name: field-operations-admin-db
+                  key: url
+                  optional: true
             - name: KEYCLOAK_URL
               valueFrom:
                 configMapKeyRef:

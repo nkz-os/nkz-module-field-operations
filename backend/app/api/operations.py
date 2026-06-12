@@ -2,9 +2,10 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import Response
 
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
-from ..services.photo_service import upload_label_photo
+from ..services.photo_service import upload_label_photo, get_label_photo
 from ..services.work_order_service import create_external_work_order
 from ..state_machine import can_transition, validate_completion_fields
 from ..orion_ops import (
@@ -218,6 +219,26 @@ def api_upload_label_photo(
     })
 
     return {"url": url}
+
+
+@router.get("/photos/{path:path}")
+async def serve_label_photo(path: str, request: Request):
+    """Serve a label photo from MinIO.
+
+    The path matches the object_key structure:
+    field-operations/{tenant_id}/{op_short}/label_{uuid}.{ext}
+    """
+    tenant_id = _get_tenant(request)
+
+    parts = path.split("/")
+    if len(parts) < 3 or parts[0] != "field-operations" or parts[1] != tenant_id:
+        raise HTTPException(403, "Access denied")
+
+    try:
+        data, content_type = get_label_photo(path)
+        return Response(content=data, media_type=content_type)
+    except FileNotFoundError:
+        raise HTTPException(404, "Photo not found")
 
 
 @router.post("/operations/{operation_id}/extrapolate")

@@ -37,6 +37,22 @@ def _get_minio_client() -> Minio:
     )
 
 
+def get_label_photo(object_key: str) -> tuple[bytes, str]:
+    """Retrieve a label photo from MinIO. Returns (data, content_type)."""
+    client = _get_minio_client()
+    try:
+        resp = client.get_object(MINIO_BUCKET, object_key)
+        data = resp.read()
+        content_type = resp.headers.get("content-type", "application/octet-stream")
+        resp.close()
+        resp.release_conn()
+        return data, content_type
+    except S3Error as e:
+        if e.code == "NoSuchKey":
+            raise FileNotFoundError(f"Photo not found: {object_key}")
+        raise RuntimeError(f"Failed to read photo: {e.message or str(e)}") from e
+
+
 def upload_label_photo(
     tenant_id: str,
     operation_id: str,

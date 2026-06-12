@@ -32,22 +32,58 @@ async def _process_stale_operations():
 
     # Import here to avoid circular imports at module level
     from ..orion_ops import query_operations, update_entity_attrs
+    from ..admin_db import get_active_tenants
 
-    # Note: In production, this should iterate over active tenants.
-    # For now, queries without tenant filter rely on the caller providing tenant context.
-    # The worker runs per-tenant or uses a tenant-discovery mechanism.
-    logger.debug("Stale check: cutoff=%s", cutoff_iso)
+    tenants = await get_active_tenants()
+    if not tenants:
+        logger.info(
+            "No tenants discovered — stale check skipped. "
+            "Set ADMIN_POSTGRES_URL to enable tenant iteration."
+        )
+        return
 
-    # This is a placeholder for the actual tenant-iterating logic.
-    # In production, the worker should:
-    # 1. Query the admin database for active tenants
-    # 2. For each tenant, run query_operations(tenant, status="incomplete")
-    # 3. Check startedAt < cutoff
-    # 4. Update status to needs_review
+    logger.debug("Stale check: cutoff=%s, tenants=%d", cutoff_iso, len(tenants))
 
-    # For now, log what would be checked
-    logger.info(
-        "Stale operation check complete (timeout=%dh). "
-        "Tenant iteration not yet implemented — see field-operations Task 11.",
-        INCOMPLETE_TIMEOUT_HOURS,
-    )
+    for tenant_id in tenants:
+        try:
+            operations = query_operations(tenant_id, status="incomplete", limit=200)
+        except Exception as e:
+            logger.error("Failed to query operations for tenant %s: %s", tenant_id, e)
+            continue
+
+        flagged = 0
+        for op in operations:
+            started_at_str = None
+            if isinstance(op.get("startedAt"), dict):
+                val = op["startedAt"].get("value")
+                if isinstance(val, dict):
+                    started_at_str = val.get("@value")
+                elif isinstance(val, str):
+                    started_at_str = val
+
+            if not started_at_str:
+                continue
+
+            try:
+                started_at = datetime.fromisoformat(started_at_str)
+            except (ValueError, TypeError):
+                continue
+
+            if started_at < cutoff:
+                op_id = op.get("id", "")
+                logger.info(
+                    "Flagging stale operation %s (started=%s, cutoff=%s)",
+                    op_id, started_at_str, cutoff_iso,
+                )
+                try:
+                    update_entity_attrs(tenant_id, op_id, {
+                        "status": {"type": "Property", "value": "needs_review"},
+                    })
+                    flagged += 1
+                except Exception as e:
+                    logger.error("Failed to flag operation %s: %s", op_id, e)
+
+        logger.info(
+            "Tenant %s: %d incomplete ops, %d flagged stale",
+            tenant_id, len(operations), flagged,
+        )
