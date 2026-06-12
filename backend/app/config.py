@@ -17,7 +17,8 @@ VALID_SOURCES = ["manual", "odoo", "api", "isobus"]
 ODOO_EXTERNAL_REF_PREFIX = os.getenv("ODOO_EXTERNAL_REF_PREFIX", "ODT-")
 
 VALID_OPERATION_TYPES = [
-    "sowing", "irrigation", "fertilization", "spraying", "tillage", "harvesting"
+    "sowing", "irrigation", "fertilization", "spraying", "tillage",
+    "harvesting", "haymaking", "baling", "scouting",
 ]
 VALID_STATUSES = ["planned", "incomplete", "completed", "needs_review", "cancelled"]
 
@@ -28,4 +29,7 @@ REQUIRED_FIELDS = {
     "spraying": ["productName", "productRate"],
     "tillage": ["tillageType"],
     "harvesting": ["harvestedWeight"],
+    "haymaking": ["cropType", "swathType"],
+    "baling": ["cropType", "baleType", "baleCount"],
+    "scouting": ["platformType"],
 }

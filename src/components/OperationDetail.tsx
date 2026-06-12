@@ -145,6 +145,7 @@ function FormFields({ operationType, form, onChange, t }: FormFieldsProps) {
               { value: 'cultivating', label: t('fields.cultivating') },
               { value: 'rolling', label: t('fields.rolling') },
               { value: 'subsoiling', label: t('fields.subsoiling') },
+              { value: 'roller_crimper', label: t('fields.rollerCrimper') },
             ]}
           />
           <FieldInput label={t('fields.tillageDepth')} field="tillageDepth" type="number" form={form} onChange={onChange} t={t} />
@@ -166,6 +167,62 @@ function FormFields({ operationType, form, onChange, t }: FormFieldsProps) {
               { value: 'feed', label: t('fields.feed') },
             ]}
           />
+        </div>
+      );
+    case 'haymaking':
+      return (
+        <div className="grid grid-cols-1 gap-3">
+          <FieldInput label={t('fields.cropType')} field="cropType" form={form} onChange={onChange} t={t} />
+          <FieldSelect
+            label={t('fields.swathType')}
+            field="swathType"
+            form={form}
+            onChange={onChange}
+            options={[
+              { value: 'tedding', label: t('fields.tedding') },
+              { value: 'raking', label: t('fields.raking') },
+              { value: 'mowing', label: t('fields.mowing') },
+            ]}
+          />
+          <FieldInput label={t('fields.moisture')} field="moisture" type="number" form={form} onChange={onChange} t={t} />
+        </div>
+      );
+    case 'baling':
+      return (
+        <div className="grid grid-cols-1 gap-3">
+          <FieldInput label={t('fields.cropType')} field="cropType" form={form} onChange={onChange} t={t} />
+          <FieldSelect
+            label={t('fields.baleType')}
+            field="baleType"
+            form={form}
+            onChange={onChange}
+            options={[
+              { value: 'round', label: t('fields.round') },
+              { value: 'square', label: t('fields.square') },
+            ]}
+          />
+          <FieldInput label={t('fields.baleCount')} field="baleCount" type="number" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.baleWeight')} field="baleWeight" type="number" form={form} onChange={onChange} t={t} />
+        </div>
+      );
+    case 'scouting':
+      return (
+        <div className="grid grid-cols-1 gap-3">
+          <FieldSelect
+            label={t('fields.platformType')}
+            field="platformType"
+            form={form}
+            onChange={onChange}
+            options={[
+              { value: 'drone', label: t('fields.drone') },
+              { value: 'rover', label: t('fields.rover') },
+              { value: 'satellite', label: t('fields.satellite') },
+              { value: 'manual', label: t('fields.manualInspection') },
+            ]}
+          />
+          <FieldInput label={t('fields.sensorType')} field="sensorType" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.coveragePct')} field="coveragePct" type="number" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.notes')} field="notes" form={form} onChange={onChange} t={t} />
         </div>
       );
     default:

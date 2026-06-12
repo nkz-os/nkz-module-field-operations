@@ -36,7 +36,10 @@
     "fertilization": "Fertilization",
     "spraying": "Spraying",
     "tillage": "Tillage",
-    "harvesting": "Harvesting"
+    "harvesting": "Harvesting",
+    "haymaking": "Haymaking",
+    "baling": "Baling",
+    "scouting": "Scouting"
   },
 
   "statuses": {
@@ -94,7 +97,24 @@
     "harvestDestination": "Destination",
     "storage": "Storage",
     "sale": "Sale",
-    "feed": "Feed"
+    "feed": "Feed",
+    "swathType": "Swath operation",
+    "tedding": "Tedding",
+    "raking": "Raking",
+    "mowing": "Mowing",
+    "baleType": "Bale type",
+    "round": "Round",
+    "square": "Square",
+    "baleCount": "Bale count",
+    "baleWeight": "Bale weight (kg)",
+    "platformType": "Platform",
+    "drone": "Drone",
+    "rover": "Rover",
+    "satellite": "Satellite",
+    "manualInspection": "Manual inspection",
+    "sensorType": "Sensor type",
+    "coveragePct": "Coverage (%)",
+    "rollerCrimper": "Roller crimper"
   },
 
   "extrapolate": {

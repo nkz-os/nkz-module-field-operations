@@ -36,7 +36,10 @@
     "fertilization": "Abonado",
     "spraying": "Fitosanitario",
     "tillage": "Laboreo",
-    "harvesting": "Cosecha"
+    "harvesting": "Cosecha",
+    "haymaking": "Henificado",
+    "baling": "Enfardado",
+    "scouting": "Monitorización"
   },
 
   "statuses": {
@@ -94,7 +97,24 @@
     "harvestDestination": "Destino",
     "storage": "Almacén",
     "sale": "Venta",
-    "feed": "Pienso"
+    "feed": "Pienso",
+    "swathType": "Tipo de hilerado",
+    "tedding": "Esparcido",
+    "raking": "Hilerado",
+    "mowing": "Siega",
+    "baleType": "Tipo de bala",
+    "round": "Redonda",
+    "square": "Prisma",
+    "baleCount": "Nº de pacas",
+    "baleWeight": "Peso por paca (kg)",
+    "platformType": "Plataforma",
+    "drone": "Dron",
+    "rover": "Rover",
+    "satellite": "Satélite",
+    "manualInspection": "Inspección manual",
+    "sensorType": "Tipo de sensor",
+    "coveragePct": "Cobertura (%)",
+    "rollerCrimper": "Rodillo aplastador"
   },
 
   "extrapolate": {

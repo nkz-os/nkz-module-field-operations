@@ -10,6 +10,7 @@ interface OperationsTableProps {
 const OP_ICON: Record<string, string> = {
   sowing: '🌱', irrigation: '💧', fertilization: '🧪',
   spraying: '🌫️', tillage: '⚙️', harvesting: '🌾',
+  haymaking: '🌿', baling: '🧱', scouting: '🔍',
 };
 const STATUS_COLOR: Record<string, string> = {
   needs_review: 'text-red-600', incomplete: 'text-orange-500',

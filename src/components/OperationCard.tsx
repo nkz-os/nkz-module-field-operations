@@ -45,6 +45,9 @@ const OP_ICON: Record<string, string> = {
   spraying:      '🌫️',
   tillage:       '⚙️',
   harvesting:    '🌾',
+  haymaking:     '🌿',
+  baling:        '🧱',
+  scouting:      '🔍',
 };
 
 function formatDate(val: { '@value': string } | string | undefined): string {

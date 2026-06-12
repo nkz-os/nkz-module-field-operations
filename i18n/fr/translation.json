@@ -33,7 +33,10 @@
     "fertilization": "Fertilisation",
     "spraying": "Phytosanitaire",
     "tillage": "Travail du sol",
-    "harvesting": "Récolte"
+    "harvesting": "Récolte",
+    "haymaking": "Fenaison",
+    "baling": "Mise en balles",
+    "scouting": "Surveillance"
   },
   "statuses": {
     "planned": "Planifiée",
@@ -87,7 +90,24 @@
     "harvestDestination": "Destination",
     "storage": "Storage",
     "sale": "Sale",
-    "feed": "Feed"
+    "feed": "Feed",
+    "swathType": "Type d'andain",
+    "tedding": "Fanage",
+    "raking": "Andainage",
+    "mowing": "Fauche",
+    "baleType": "Type de balle",
+    "round": "Ronde",
+    "square": "Carrée",
+    "baleCount": "Nombre de balles",
+    "baleWeight": "Poids par balle (kg)",
+    "platformType": "Plateforme",
+    "drone": "Drone",
+    "rover": "Rover",
+    "satellite": "Satellite",
+    "manualInspection": "Inspection manuelle",
+    "sensorType": "Type de capteur",
+    "coveragePct": "Couverture (%)",
+    "rollerCrimper": "Rouleau faconneur"
   },
   "extrapolate": {
     "trigger": "Extrapoler à la parcelle entière",

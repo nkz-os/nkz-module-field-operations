@@ -33,7 +33,10 @@
     "fertilization": "Ongarritzea",
     "spraying": "Fitosanitarioa",
     "tillage": "Laborantza",
-    "harvesting": "Uzta"
+    "harvesting": "Uzta",
+    "haymaking": "Belar-bilketa",
+    "baling": "Balatzea",
+    "scouting": "Monitorizazioa"
   },
   "statuses": {
     "planned": "Planifikatua",
@@ -87,7 +90,24 @@
     "harvestDestination": "Destination",
     "storage": "Storage",
     "sale": "Sale",
-    "feed": "Feed"
+    "feed": "Feed",
+    "swathType": "Sega mota",
+    "tedding": "Baretatzea",
+    "raking": "Bilduma",
+    "mowing": "Sega",
+    "baleType": "Bala mota",
+    "round": "Biribila",
+    "square": "Karratua",
+    "baleCount": "Bala kopurua",
+    "baleWeight": "Bala pisua (kg)",
+    "platformType": "Plataforma",
+    "drone": "Dron",
+    "rover": "Rover",
+    "satellite": "Satelitea",
+    "manualInspection": "Eskuzko ikuskapena",
+    "sensorType": "Sentsore mota",
+    "coveragePct": "Estaldura (%)",
+    "rollerCrimper": "Arrayatzaile zilindrikoa"
   },
   "extrapolate": {
     "trigger": "Parcela osora estrapolatu",

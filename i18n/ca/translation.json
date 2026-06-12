@@ -33,7 +33,10 @@
     "fertilization": "Adobatge",
     "spraying": "Fitosanitari",
     "tillage": "Conreu",
-    "harvesting": "Collita"
+    "harvesting": "Collita",
+    "haymaking": "Fenificació",
+    "baling": "Empacat",
+    "scouting": "Monitorització"
   },
   "statuses": {
     "planned": "Planificada",
@@ -87,7 +90,24 @@
     "harvestDestination": "Destination",
     "storage": "Storage",
     "sale": "Sale",
-    "feed": "Feed"
+    "feed": "Feed",
+    "swathType": "Tipus de filera",
+    "tedding": "Escampat",
+    "raking": "Filerat",
+    "mowing": "Segada",
+    "baleType": "Tipus de bala",
+    "round": "Rodona",
+    "square": "Prisma",
+    "baleCount": "Nombre de bales",
+    "baleWeight": "Pes per bala (kg)",
+    "platformType": "Plataforma",
+    "drone": "Dron",
+    "rover": "Rover",
+    "satellite": "Satèl·lit",
+    "manualInspection": "Inspecció manual",
+    "sensorType": "Tipus de sensor",
+    "coveragePct": "Cobertura (%)",
+    "rollerCrimper": "Corró aixafador"
   },
   "extrapolate": {
     "trigger": "Extrapolar a la Parcel·la Completa",
