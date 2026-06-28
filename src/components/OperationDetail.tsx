@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import PhotoUpload from './PhotoUpload';
+import PesticideValidationBadge from './PesticideValidationBadge';
+import { usePesticideValidation } from '../hooks/usePesticideValidation';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -16,7 +18,8 @@ interface FormFieldsProps {
   operationType: string;
   form: Record<string, unknown>;
   onChange: (f: Record<string, unknown>) => void;
-  t: (key: string) => string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+  parcelId?: string;
 }
 
 function FieldInput({
@@ -68,7 +71,32 @@ function FieldSelect({
   );
 }
 
-function FormFields({ operationType, form, onChange, t }: FormFieldsProps) {
+function SprayingFields({ form, onChange, t, parcelId }: FormFieldsProps) {
+  const productName = (form.productName as string) ?? '';
+  const validation = usePesticideValidation(parcelId, productName);
+
+  return (
+    <div className="grid grid-cols-1 gap-3">
+      <FieldInput label={t('fields.productName')} field="productName" form={form} onChange={onChange} t={t} />
+      <PesticideValidationBadge validation={validation} t={t} />
+      <FieldInput label={t('fields.productRate')} field="productRate" type="number" form={form} onChange={onChange} t={t} />
+      <FieldInput label={t('fields.productRegistryRef')} field="productRegistryRef" form={form} onChange={onChange} t={t} />
+      <FieldSelect
+        label={t('fields.applicationMethod')}
+        field="applicationMethod"
+        form={form}
+        onChange={onChange}
+        options={[
+          { value: 'foliar', label: t('fields.foliar') },
+          { value: 'soil', label: t('fields.soil') },
+          { value: 'drip', label: t('fields.drip') },
+        ]}
+      />
+    </div>
+  );
+}
+
+function FormFields({ operationType, form, onChange, t, parcelId }: FormFieldsProps) {
   switch (operationType) {
     case 'sowing':
       return (
@@ -114,22 +142,13 @@ function FormFields({ operationType, form, onChange, t }: FormFieldsProps) {
       );
     case 'spraying':
       return (
-        <div className="grid grid-cols-1 gap-3">
-          <FieldInput label={t('fields.productName')}        field="productName"        form={form} onChange={onChange} t={t} />
-          <FieldInput label={t('fields.productRate')}        field="productRate"        type="number" form={form} onChange={onChange} t={t} />
-          <FieldInput label={t('fields.productRegistryRef')} field="productRegistryRef" form={form} onChange={onChange} t={t} />
-          <FieldSelect
-            label={t('fields.applicationMethod')}
-            field="applicationMethod"
-            form={form}
-            onChange={onChange}
-            options={[
-              { value: 'foliar', label: t('fields.foliar') },
-              { value: 'soil',   label: t('fields.soil') },
-              { value: 'drip',   label: t('fields.drip') },
-            ]}
-          />
-        </div>
+        <SprayingFields
+          operationType={operationType}
+          form={form}
+          onChange={onChange}
+          t={t}
+          parcelId={parcelId}
+        />
       );
     case 'tillage':
       return (
@@ -320,7 +339,15 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
       );
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        throw new Error(err.detail ?? `HTTP ${resp.status}`);
+        const detail = err.detail;
+        if (typeof detail === 'object' && detail?.code === 'pesticide_not_authorized') {
+          throw new Error(
+            detail.detail ?? t('spraying.pesticideRejected', { defaultValue: 'Not authorized for this crop' }),
+          );
+        }
+        throw new Error(
+          typeof detail === 'string' ? detail : (detail?.detail ?? `HTTP ${resp.status}`),
+        );
       }
       onSaved();
       onClose();
@@ -487,12 +514,13 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
               </h3>
 
               {canEdit ? (
-                <FormFields
-                  operationType={opType}
-                  form={form}
-                  onChange={setForm}
-                  t={t}
-                />
+            <FormFields
+              operationType={opType}
+              form={form}
+              onChange={setForm}
+              t={t}
+              parcelId={operation.hasAgriParcel?.object}
+            />
               ) : (
                 <p className="text-sm text-nkz-text-muted italic">
                   {t('form.readOnly')}
