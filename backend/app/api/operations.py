@@ -1,7 +1,7 @@
 """API routes for AgriParcelOperation management."""
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
@@ -12,6 +12,10 @@ from ..orion_ops import (
     create_operation, get_entity, update_entity_attrs,
     start_operation, complete_operation,
     enrich_from_isobus, query_operations, extrapolate_to_full_parcel,
+)
+from ..services.pesticide_validation import (
+    enforce_spraying_validation,
+    validate_spraying_product,
 )
 
 router = APIRouter(prefix="/api/field-operations", tags=["field-operations"])
@@ -24,6 +28,17 @@ def _get_tenant(request: Request) -> str:
 def _get_roles(request: Request) -> list:
     raw = request.headers.get("X-User-Roles", "")
     return [r.strip() for r in raw.split(",") if r.strip()]
+
+
+def _get_user_id(request: Request) -> str:
+    return request.headers.get("X-User-ID", "field-operations")
+
+
+def _pesticide_422(detail: str):
+    raise HTTPException(
+        status_code=422,
+        detail={"code": "pesticide_not_authorized", "detail": detail},
+    )
 
 
 def _resolve_actor(roles: list) -> str:
@@ -62,6 +77,26 @@ async def list_operations(
     return {"operations": results, "count": len(results)}
 
 
+@router.get("/validate-pesticide")
+async def validate_pesticide(
+    request: Request,
+    parcel_id: str = Query(...),
+    product_name: str = Query(...),
+):
+    """Pre-check spraying product authorization (for UI badges in P2)."""
+    tenant_id = _get_tenant(request)
+    result = validate_spraying_product(
+        tenant_id, parcel_id, product_name, _get_user_id(request),
+    )
+    return {
+        "status": result.status,
+        "detail": result.detail,
+        "crop_eppo": result.crop_eppo,
+        "product_name": result.product_name,
+        "authorized": result.status == "authorized",
+    }
+
+
 @router.post("/operations")
 async def create_field_operation(request: Request, body: dict):
     tenant_id = _get_tenant(request)
@@ -69,6 +104,17 @@ async def create_field_operation(request: Request, body: dict):
     for field in required:
         if field not in body:
             raise HTTPException(400, f"Missing required field: {field}")
+
+    try:
+        enforce_spraying_validation(
+            tenant_id,
+            body["parcel_id"],
+            body["operation_type"],
+            body,
+            _get_user_id(request),
+        )
+    except ValueError as exc:
+        _pesticide_422(str(exc))
 
     entity = create_operation(
         tenant_id,
@@ -97,6 +143,13 @@ async def create_work_order(request: Request, body: dict):
             raise HTTPException(400, f"Missing required field: {field}")
 
     try:
+        enforce_spraying_validation(
+            tenant_id,
+            body["parcel_id"],
+            body["operation_type"],
+            body,
+            _get_user_id(request),
+        )
         entity = create_external_work_order(
             tenant_id,
             parcel_id=body["parcel_id"],
@@ -112,7 +165,10 @@ async def create_work_order(request: Request, body: dict):
         )
         return entity
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        msg = str(e)
+        if "not authorized" in msg.lower():
+            _pesticide_422(msg)
+        raise HTTPException(400, msg)
 
 
 @router.get("/operations/{operation_id}")
@@ -151,7 +207,26 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     if missing:
         raise HTTPException(400, f"Cannot complete: missing required fields: {missing}")
 
+    parcel_ref = entity.get("hasAgriParcel", {}).get("object", "")
+    merged = {
+        "productName": _prop_val(entity.get("productName")),
+        "productRate": _prop_val(entity.get("productRate")),
+        **body,
+    }
+    try:
+        enforce_spraying_validation(
+            tenant_id, parcel_ref, op_type, merged, _get_user_id(request),
+        )
+    except ValueError as exc:
+        _pesticide_422(str(exc))
+
     return complete_operation(tenant_id, operation_id, extra_attrs=body)
+
+
+def _prop_val(prop: dict | None):
+    if not isinstance(prop, dict):
+        return None
+    return prop.get("value")
 
 
 @router.post("/operations/{operation_id}/cancel")

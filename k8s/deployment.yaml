@@ -59,6 +59,12 @@ spec:
                 configMapKeyRef:
                   name: field-operations-config
                   key: CUE_API_URL
+            - name: BIOORCHESTRATOR_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: field-operations-config
+                  key: BIOORCHESTRATOR_API_URL
+                  optional: true
             - name: FIELD_OPS_INCOMPLETE_TIMEOUT_H
               valueFrom:
                 configMapKeyRef:
