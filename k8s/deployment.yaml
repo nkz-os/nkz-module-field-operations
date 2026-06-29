@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/nkz-os/nkz-module-field-operations:latest
+          image: ghcr.io/nkz-os/nkz-module-field-operations:5c2f966
           imagePullPolicy: Always
           ports:
             - name: http
