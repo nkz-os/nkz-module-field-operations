@@ -98,15 +98,15 @@ def fetch_authorized_substances(
     tenant_id: str,
     user_id: str = "",
 ) -> tuple[list[dict], Optional[str]]:
-    """Call BioOrchestrator /api/graph/pesticides for crop EPPO."""
-    url = f"{BIOORCHESTRATOR_API_URL.rstrip('/')}/api/graph/pesticides"
+    """Call BioOrchestrator /api/graph/agriculture/pesticides for crop EPPO."""
+    url = f"{BIOORCHESTRATOR_API_URL.rstrip('/')}/api/graph/agriculture/pesticides"
     headers = {"X-Tenant-ID": tenant_id}
     if user_id:
         headers["X-User-ID"] = user_id
 
     try:
         with httpx.Client(timeout=8.0) as client:
-            resp = client.get(url, params={"crop": crop_eppo}, headers=headers)
+            resp = client.get(url, params={"crop_eppo": crop_eppo}, headers=headers)
             if resp.status_code != 200:
                 return [], f"BioOrchestrator pesticides API returned {resp.status_code}"
             data = resp.json()
@@ -160,8 +160,8 @@ def validate_spraying_product(
             product_name=product,
         )
 
-    authorized = _substance_names(substances)
-    if _matches_product(product, authorized):
+    authorized_names = _substance_names(substances)
+    if _matches_product(product, authorized_names):
         return PesticideValidationResult(
             status="authorized",
             detail=f"Product authorized for crop {crop_eppo}",
