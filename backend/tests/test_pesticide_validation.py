@@ -137,3 +137,49 @@ class TestOperationsApiPesticide:
             )
             assert resp.status_code == 200
             assert resp.json()["authorized"] is True
+
+
+# ── Task 7: new flow (crop-name resolve + CUE ROPO) ──────────────────────────
+
+import app.services.pesticide_validation as pv  # noqa: E402
+
+
+def _row(name, ingr=""):
+    return {"nombre_comercial": name, "ingrediente_activo": ingr}
+
+
+def test_authorized_product_cue(monkeypatch):
+    monkeypatch.setattr(pv, "resolve_parcel_crop_eppo", lambda t, p: "TRZAX")
+    monkeypatch.setattr(pv, "_resolve_crop_name_es", lambda e, t, u="": "trigo")
+    with patch.object(pv, "get_ropo_products", return_value=[_row("Roundup")]):
+        res = pv.validate_spraying_product("montiko", "urn:p", "Roundup")
+    assert res.status == "authorized"
+
+
+def test_not_authorized_product_cue(monkeypatch):
+    monkeypatch.setattr(pv, "resolve_parcel_crop_eppo", lambda t, p: "TRZAX")
+    monkeypatch.setattr(pv, "_resolve_crop_name_es", lambda e, t, u="": "trigo")
+    with patch.object(pv, "get_ropo_products", return_value=[_row("OtraCosa")]):
+        res = pv.validate_spraying_product("montiko", "urn:p", "Roundup")
+    assert res.status == "not_authorized"
+
+
+def test_crop_name_unresolved_failopen(monkeypatch):
+    monkeypatch.setattr(pv, "resolve_parcel_crop_eppo", lambda t, p: "TRZAX")
+    monkeypatch.setattr(pv, "_resolve_crop_name_es", lambda e, t, u="": None)
+    res = pv.validate_spraying_product("montiko", "urn:p", "Roundup")
+    assert res.status == "unknown_substance"
+
+
+def test_cue_down_failopen(monkeypatch):
+    import httpx  # noqa: PLC0415
+
+    monkeypatch.setattr(pv, "resolve_parcel_crop_eppo", lambda t, p: "TRZAX")
+    monkeypatch.setattr(pv, "_resolve_crop_name_es", lambda e, t, u="": "trigo")
+
+    def _boom(*a, **k):
+        raise httpx.HTTPError("down")
+
+    with patch.object(pv, "get_ropo_products", side_effect=_boom):
+        res = pv.validate_spraying_product("montiko", "urn:p", "Roundup")
+    assert res.status == "unknown_substance"

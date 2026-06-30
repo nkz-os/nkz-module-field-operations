@@ -10,6 +10,7 @@ import httpx
 
 from ..config import BIOORCHESTRATOR_API_URL
 from ..orion_ops import get_entity
+from .cue_client import get_ropo_products
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,8 @@ def _substance_names(substances: list[dict]) -> set[str]:
     for item in substances:
         if not isinstance(item, dict):
             continue
-        for key in ("name", "product_name", "productName", "active_substance", "substance", "crop"):
+        for key in ("nombre_comercial", "ingrediente_activo", "name", "product_name",
+                    "productName", "active_substance", "substance", "crop"):
             val = item.get(key)
             if val:
                 names.add(str(val).strip().lower())
@@ -93,26 +95,35 @@ def _matches_product(product_name: str, authorized: set[str]) -> bool:
     return any(needle in name or name in needle for name in authorized if len(name) >= 3)
 
 
+def _resolve_crop_name_es(crop_eppo: str, tenant_id: str, user_id: str = "") -> Optional[str]:
+    """Resolve EPPO -> Spanish crop name via BioOrchestrator. None on failure."""
+    url = f"{BIOORCHESTRATOR_API_URL.rstrip('/')}/api/graph/agriculture/crop-name"
+    headers = {"X-Tenant-ID": tenant_id}
+    if user_id:
+        headers["X-User-ID"] = user_id
+    try:
+        with httpx.Client(timeout=8.0) as client:
+            resp = client.get(url, params={"eppo": crop_eppo, "lang": "es"}, headers=headers)
+            if resp.status_code != 200:
+                return None
+            return resp.json().get("name")
+    except httpx.HTTPError:
+        return None
+
+
 def fetch_authorized_substances(
     crop_eppo: str,
     tenant_id: str,
     user_id: str = "",
 ) -> tuple[list[dict], Optional[str]]:
-    """Call BioOrchestrator /api/graph/agriculture/pesticides for crop EPPO."""
-    url = f"{BIOORCHESTRATOR_API_URL.rstrip('/')}/api/graph/agriculture/pesticides"
-    headers = {"X-Tenant-ID": tenant_id}
-    if user_id:
-        headers["X-User-ID"] = user_id
-
+    """Resolve crop name then fetch authorized ROPO products from CUE."""
+    cultivo = _resolve_crop_name_es(crop_eppo, tenant_id, user_id)
+    if not cultivo:
+        return [], f"Could not resolve crop name for EPPO {crop_eppo}"
     try:
-        with httpx.Client(timeout=8.0) as client:
-            resp = client.get(url, params={"crop_eppo": crop_eppo}, headers=headers)
-            if resp.status_code != 200:
-                return [], f"BioOrchestrator pesticides API returned {resp.status_code}"
-            data = resp.json()
-            return data.get("substances") or [], None
+        return get_ropo_products(cultivo, tenant_id), None
     except httpx.HTTPError as exc:
-        return [], f"BioOrchestrator unreachable: {exc}"
+        return [], f"CUE ROPO unreachable: {exc}"
 
 
 def validate_spraying_product(
