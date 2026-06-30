@@ -271,3 +271,73 @@ def _extract_unit(entity: dict, field: str) -> str | None:
     if isinstance(attr, dict):
         return attr.get("unitCode") or None
     return None
+
+
+def create_suggested_operation(
+    tenant_id: str,
+    parcel_id: str,
+    operation_type: str,
+    confidence: float,
+    delta_vv_db: float,
+    sensing_date: str,
+    scene_id: str = "",
+) -> str | None:
+    """Create a SAR-suggested AgriParcelOperation with status=suggested.
+
+    Idempotent: if a suggested operation already exists for this
+    parcel + date + type, returns None (caller should return 409).
+    """
+    from urllib.parse import quote
+
+    client = _get_client(tenant_id)
+
+    # Idempotency check
+    q = (
+        f'hasAgriParcel=="{parcel_id}"'
+        f';operationType=="{operation_type}"'
+        f';status=="suggested"'
+    )
+    check = client.get(
+        f"/ngsi-ld/v1/entities?type=AgriParcelOperation&q={quote(q)}&limit=1"
+    )
+    if check.status_code == 200:
+        existing = check.json()
+        if isinstance(existing, list) and existing:
+            logger.info(
+                "Suggested operation already exists for %s/%s",
+                parcel_id, operation_type,
+            )
+            return None
+
+    op_id = _build_operation_id(tenant_id)
+    entity: dict = {
+        "id": op_id,
+        "type": "AgriParcelOperation",
+        "operationType": {"type": "Property", "value": operation_type},
+        "hasAgriParcel": {"type": "Relationship", "object": parcel_id},
+        "status": {"type": "Property", "value": "suggested"},
+        "dataFidelity": {"type": "Property", "value": "satellite_derived"},
+        "plannedStartAt": {
+            "type": "Property",
+            "value": f"{sensing_date}T06:00:00Z" if sensing_date and "T" not in sensing_date else sensing_date or "",
+        },
+        "description": {
+            "type": "Property",
+            "value": f"Detectado por SAR (confianza: {int(confidence * 100)}%). ¿Confirma esta labor?",
+        },
+        "sarDetection": {
+            "type": "Property",
+            "value": {
+                "confidence": round(float(confidence), 4),
+                "deltaVV": round(float(delta_vv_db), 2),
+                "sceneId": scene_id or "",
+            },
+        },
+    }
+
+    resp = client.post("/ngsi-ld/v1/entities", json=entity)
+    if resp.status_code in (201, 204):
+        logger.info("Created suggested operation %s for %s", op_id, parcel_id)
+        return op_id
+    logger.warning("Failed to create suggested operation: %d %s", resp.status_code, resp.text[:200])
+    return None
