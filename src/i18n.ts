@@ -248,8 +248,52 @@ function registerFieldOperationsTranslations(): void {
   if (!i18n || typeof (i18n as { addResourceBundle?: unknown }).addResourceBundle !== 'function') return;
   i18n.addResourceBundle('en', NS, en, true, true);
   i18n.addResourceBundle('es', NS, es, true, true);
+  i18n.addResourceBundle('ca', NS, ca, true, true);
+  i18n.addResourceBundle('eu', NS, eu, true, true);
+  i18n.addResourceBundle('fr', NS, fr, true, true);
+  i18n.addResourceBundle('pt', NS, pt, true, true);
 }
 
 registerFieldOperationsTranslations();
 
 export { en, es };
+
+const ca = {
+  spraying: {
+    pesticideAuthorized: 'Autoritzat per a aquest cultiu',
+    pesticideRejected: 'No autoritzat per a aquest cultiu',
+    pesticideUnknown: 'No s\'ha pogut verificar — procediu amb cautela',
+    pesticideChecking: 'Comprovant autorització…',
+    pesticideSkipped: 'Validació omesa (sense cultiu assignat)',
+  },
+};
+
+const eu = {
+  spraying: {
+    pesticideAuthorized: 'Labore honetarako baimendua',
+    pesticideRejected: 'Ez dago baimenduta labore honetarako',
+    pesticideUnknown: 'Ezin izan da egiaztatu — jarraitu kontuz',
+    pesticideChecking: 'Baimena egiaztatzen…',
+    pesticideSkipped: 'Balioztapena saltatu da (ez dago laborerik esleituta)',
+  },
+};
+
+const fr = {
+  spraying: {
+    pesticideAuthorized: 'Autorisé pour cette culture',
+    pesticideRejected: 'Non autorisé pour cette culture',
+    pesticideUnknown: 'Vérification impossible — procédez avec prudence',
+    pesticideChecking: 'Vérification de l\'autorisation…',
+    pesticideSkipped: 'Validation ignorée (aucune culture attribuée)',
+  },
+};
+
+const pt = {
+  spraying: {
+    pesticideAuthorized: 'Autorizado para esta cultura',
+    pesticideRejected: 'Não autorizado para esta cultura',
+    pesticideUnknown: 'Não foi possível verificar — prossiga com cautela',
+    pesticideChecking: 'A verificar autorização…',
+    pesticideSkipped: 'Validação ignorada (sem cultura atribuída)',
+  },
+};
