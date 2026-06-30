@@ -2,9 +2,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 
-from ..config import CUE_API_URL
+from ..config import CUE_API_URL, INTERNAL_SERVICE_SECRET
 
 router = APIRouter(prefix="/api/field-operations/cue", tags=["cue-bridge"])
+
+# CUE routes live under the module blueprint prefix; internal reads/SIEX writes
+# authenticate with the internal-service secret (no user JWT to forward here).
+_CUE = f"{CUE_API_URL.rstrip('/')}/api/modules/cue"
+
+
+def _cue_headers(tenant_id: str) -> dict:
+    return {"X-Tenant-ID": tenant_id, "X-Internal-Service-Secret": INTERNAL_SERVICE_SECRET}
 
 
 def _get_tenant(request: Request) -> str:
@@ -23,25 +31,30 @@ async def list_authorized_products(
     tipo: str = Query("fitosanitario"),
 ):
     tenant_id = _get_tenant(request)
-    endpoint = f"{CUE_API_URL}/productos-ropo" if tipo == "fitosanitario" else f"{CUE_API_URL}/productos-fertilizantes"
+    endpoint = f"{_CUE}/productos-ropo" if tipo == "fitosanitario" else f"{_CUE}/productos-fertilizantes"
     params = {}
     if cultivo:
         params["cultivo"] = cultivo
 
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(endpoint, params=params, headers={"X-Tenant-ID": tenant_id})
+        resp = await client.get(endpoint, params=params, headers=_cue_headers(tenant_id))
         if resp.status_code != 200:
             raise HTTPException(502, f"CUE service returned {resp.status_code}")
         return resp.json()
 
 
 @router.get("/productos-autorizados/{registry_ref}")
-async def get_product_detail(registry_ref: str, request: Request):
+async def get_product_detail(
+    registry_ref: str,
+    request: Request,
+    tipo: str = Query("fitosanitario"),
+):
     tenant_id = _get_tenant(request)
+    base = "productos-ropo" if tipo == "fitosanitario" else "productos-fertilizantes"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
-            f"{CUE_API_URL}/productos/{registry_ref}",
-            headers={"X-Tenant-ID": tenant_id},
+            f"{_CUE}/{base}/{registry_ref}",
+            headers=_cue_headers(tenant_id),
         )
         if resp.status_code == 404:
             raise HTTPException(404, f"Product not found: {registry_ref}")
@@ -68,10 +81,10 @@ async def register_in_siex(operation_id: str, request: Request):
         raise HTTPException(400, f"SIEX registration only for spraying/fertilization, not {op_type}")
 
     payload = _build_siex_payload(entity)
-    endpoint = f"{CUE_API_URL}/tratamientos" if op_type == "spraying" else f"{CUE_API_URL}/fertilizaciones"
+    endpoint = f"{_CUE}/tratamientos" if op_type == "spraying" else f"{_CUE}/fertilizaciones"
 
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(endpoint, json=payload, headers={"X-Tenant-ID": tenant_id})
+        resp = await client.post(endpoint, json=payload, headers=_cue_headers(tenant_id))
         if resp.status_code not in (200, 201):
             raise HTTPException(502, f"CUE registration failed: {resp.text}")
         siex_response = resp.json()
