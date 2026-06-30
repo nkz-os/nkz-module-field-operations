@@ -37,3 +37,5 @@ REQUIRED_FIELDS = {
     "baling": ["cropType", "baleType", "baleCount"],
     "scouting": ["platformType"],
 }
+
+INTERNAL_SERVICE_SECRET = os.getenv("INTERNAL_SERVICE_SECRET", "")
