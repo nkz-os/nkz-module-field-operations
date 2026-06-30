@@ -65,6 +65,11 @@ spec:
                   name: field-operations-config
                   key: BIOORCHESTRATOR_API_URL
                   optional: true
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: internal-service-secret
+                  key: INTERNAL_SERVICE_SECRET
             - name: FIELD_OPS_INCOMPLETE_TIMEOUT_H
               valueFrom:
                 configMapKeyRef:
