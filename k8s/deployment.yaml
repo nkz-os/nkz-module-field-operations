@@ -29,7 +29,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/nkz-os/nkz-module-field-operations:5c2f966
+          # Production pin: gitops-config/overlays/modules/field-operations (CI tags :latest only)
+          image: ghcr.io/nkz-os/nkz-module-field-operations@sha256:8d68984f2b5c326af3e058bc84132251a291882d138f084d2afd72d1331c6c84
           imagePullPolicy: Always
           ports:
             - name: http
