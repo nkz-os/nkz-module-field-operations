@@ -24,7 +24,9 @@ jobs:
           context: .
           file: backend/Dockerfile
           push: true
-          tags: ghcr.io/nkz-os/nkz-module-field-operations:latest
+          tags: |
+            ghcr.io/nkz-os/nkz-module-field-operations:latest
+            ghcr.io/nkz-os/nkz-module-field-operations:${{ github.sha }}
 
   publish-module:
     needs: build-and-push
