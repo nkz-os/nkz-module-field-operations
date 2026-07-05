@@ -244,20 +244,6 @@ const es = {
   },
 };
 
-function registerFieldOperationsTranslations(): void {
-  if (!i18n || typeof (i18n as { addResourceBundle?: unknown }).addResourceBundle !== 'function') return;
-  i18n.addResourceBundle('en', NS, en, true, true);
-  i18n.addResourceBundle('es', NS, es, true, true);
-  i18n.addResourceBundle('ca', NS, ca, true, true);
-  i18n.addResourceBundle('eu', NS, eu, true, true);
-  i18n.addResourceBundle('fr', NS, fr, true, true);
-  i18n.addResourceBundle('pt', NS, pt, true, true);
-}
-
-registerFieldOperationsTranslations();
-
-export { en, es };
-
 const ca = {
   spraying: {
     pesticideAuthorized: 'Autoritzat per a aquest cultiu',
@@ -297,3 +283,17 @@ const pt = {
     pesticideSkipped: 'Validação ignorada (sem cultura atribuída)',
   },
 };
+
+function registerFieldOperationsTranslations(): void {
+  if (!i18n || typeof (i18n as { addResourceBundle?: unknown }).addResourceBundle !== 'function') return;
+  i18n.addResourceBundle('en', NS, en, true, true);
+  i18n.addResourceBundle('es', NS, es, true, true);
+  i18n.addResourceBundle('ca', NS, ca, true, true);
+  i18n.addResourceBundle('eu', NS, eu, true, true);
+  i18n.addResourceBundle('fr', NS, fr, true, true);
+  i18n.addResourceBundle('pt', NS, pt, true, true);
+}
+
+registerFieldOperationsTranslations();
+
+export { en, es };
