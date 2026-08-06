@@ -287,27 +287,25 @@ def create_suggested_operation(
     Idempotent: if a suggested operation already exists for this
     parcel + date + type, returns None (caller should return 409).
     """
-    from urllib.parse import quote
-
     client = _get_client(tenant_id)
 
-    # Idempotency check
+    # Idempotency check (via SDK for consistent @context injection)
     q = (
         f'hasAgriParcel=="{parcel_id}"'
         f';operationType=="{operation_type}"'
         f';status=="suggested"'
     )
-    check = client.get(
-        f"/ngsi-ld/v1/entities?type=AgriParcelOperation&q={quote(q)}&limit=1"
+    existing = client.query_entities(
+        type="AgriParcelOperation",
+        q=q,
+        limit=1,
     )
-    if check.status_code == 200:
-        existing = check.json()
-        if isinstance(existing, list) and existing:
-            logger.info(
-                "Suggested operation already exists for %s/%s",
-                parcel_id, operation_type,
-            )
-            return None
+    if existing:
+        logger.info(
+            "Suggested operation already exists for %s/%s",
+            parcel_id, operation_type,
+        )
+        return None
 
     op_id = _build_operation_id(tenant_id)
     entity: dict = {
@@ -335,9 +333,13 @@ def create_suggested_operation(
         },
     }
 
-    resp = client.post("/ngsi-ld/v1/entities", json=entity)
-    if resp.status_code in (201, 204):
+    try:
+        client.create_entity(entity)
         logger.info("Created suggested operation %s for %s", op_id, parcel_id)
         return op_id
-    logger.warning("Failed to create suggested operation: %d %s", resp.status_code, resp.text[:200])
+    except requests.HTTPError as exc:
+        logger.warning(
+            "Failed to create suggested operation: %d %s",
+            exc.response.status_code, exc.response.text[:200],
+        )
     return None
