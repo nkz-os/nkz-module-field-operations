@@ -24,7 +24,7 @@ VALID_OPERATION_TYPES = [
     "sowing", "irrigation", "fertilization", "spraying", "tillage",
     "harvesting", "haymaking", "baling", "scouting",
 ]
-VALID_STATUSES = ["planned", "incomplete", "completed", "needs_review", "cancelled"]
+VALID_STATUSES = ["planned", "issued", "incomplete", "completed", "needs_review", "cancelled"]
 
 REQUIRED_FIELDS = {
     "sowing": ["cropType", "variety", "seedingRate"],
