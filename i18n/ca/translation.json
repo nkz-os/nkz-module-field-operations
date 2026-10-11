@@ -107,7 +107,8 @@
     "manualInspection": "Inspecció manual",
     "sensorType": "Tipus de sensor",
     "coveragePct": "Cobertura (%)",
-    "rollerCrimper": "Corró aixafador"
+    "rollerCrimper": "Corró aixafador",
+    "coverMowing": "Sega de coberta"
   },
   "extrapolate": {
     "trigger": "Extrapolar a la Parcel·la Completa",

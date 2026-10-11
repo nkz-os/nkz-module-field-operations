@@ -107,7 +107,8 @@
     "manualInspection": "Inspection manuelle",
     "sensorType": "Type de capteur",
     "coveragePct": "Couverture (%)",
-    "rollerCrimper": "Rouleau faconneur"
+    "rollerCrimper": "Rouleau faconneur",
+    "coverMowing": "Fauche du couvert"
   },
   "extrapolate": {
     "trigger": "Extrapoler à la parcelle entière",

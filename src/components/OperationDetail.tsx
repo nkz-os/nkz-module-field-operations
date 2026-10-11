@@ -165,6 +165,7 @@ function FormFields({ operationType, form, onChange, t, parcelId }: FormFieldsPr
               { value: 'rolling', label: t('fields.rolling') },
               { value: 'subsoiling', label: t('fields.subsoiling') },
               { value: 'roller_crimper', label: t('fields.rollerCrimper') },
+              { value: 'mowing', label: t('fields.coverMowing') },
             ]}
           />
           <FieldInput label={t('fields.tillageDepth')} field="tillageDepth" type="number" form={form} onChange={onChange} t={t} />

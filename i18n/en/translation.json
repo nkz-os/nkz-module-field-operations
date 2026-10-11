@@ -114,7 +114,8 @@
     "manualInspection": "Manual inspection",
     "sensorType": "Sensor type",
     "coveragePct": "Coverage (%)",
-    "rollerCrimper": "Roller crimper"
+    "rollerCrimper": "Roller crimper",
+    "coverMowing": "Cover mowing"
   },
 
   "extrapolate": {
