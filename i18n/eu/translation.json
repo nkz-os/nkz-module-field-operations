@@ -107,7 +107,8 @@
     "manualInspection": "Eskuzko ikuskapena",
     "sensorType": "Sentsore mota",
     "coveragePct": "Estaldura (%)",
-    "rollerCrimper": "Arrayatzaile zilindrikoa"
+    "rollerCrimper": "Arrayatzaile zilindrikoa",
+    "coverMowing": "Estalkiaren sega"
   },
   "extrapolate": {
     "trigger": "Parcela osora estrapolatu",

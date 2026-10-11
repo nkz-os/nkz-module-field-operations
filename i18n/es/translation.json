@@ -114,7 +114,8 @@
     "manualInspection": "Inspección manual",
     "sensorType": "Tipo de sensor",
     "coveragePct": "Cobertura (%)",
-    "rollerCrimper": "Rodillo aplastador"
+    "rollerCrimper": "Rodillo aplastador",
+    "coverMowing": "Siega de cubierta"
   },
 
   "extrapolate": {

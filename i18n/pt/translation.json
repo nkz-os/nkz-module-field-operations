@@ -107,7 +107,8 @@
     "manualInspection": "Inspeção manual",
     "sensorType": "Tipo de sensor",
     "coveragePct": "Cobertura (%)",
-    "rollerCrimper": "Rolo esmagador"
+    "rollerCrimper": "Rolo esmagador",
+    "coverMowing": "Corte da cobertura"
   },
   "extrapolate": {
     "trigger": "Extrapolar para a Parcela Completa",
