@@ -21,19 +21,26 @@ class CompositionError(ValueError):
 
 
 def _content(field: str, raw: Any) -> float:
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw):
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise CompositionError(f"{field} must be a number (% of product)")
+    if isinstance(raw, int):
+        if not 0 <= raw <= 100:  # int range check first: math.isfinite overflows on huge ints
+            raise CompositionError(f"{field} must be between 0 and 100 % of product")
+    elif not math.isfinite(raw):
         raise CompositionError(f"{field} must be a number (% of product)")
     if not 0 <= raw <= 100:
         raise CompositionError(f"{field} must be between 0 and 100 % of product")
     return float(raw)
 
 
-def normalize_composition(operation_type: str, body: dict) -> dict:
+def normalize_composition(operation_type: str, body: dict, stored: dict | None = None) -> dict:
     """Return a copy of `body` with the composition validated and ready for NGSI-LD.
 
     Null composition fields are dropped (a cleared field is "not recorded", and Orion
     rejects null). Contents become {"value": x, "unitCode": "P1"}. Raises
-    CompositionError for anything that cannot be stored.
+    CompositionError for anything that cannot be stored. `stored` is the entity as
+    Orion returns it: its contents absent from `body` count toward the sum, unvalidated
+    and not written back.
     """
     out = {k: v for k, v in body.items() if not (k in COMPOSITION_FIELDS and v is None)}
     present = [f for f in COMPOSITION_FIELDS if f in out]
@@ -47,6 +54,10 @@ def normalize_composition(operation_type: str, body: dict) -> dict:
             value = _content(field, out[field])
             total += value
             out[field] = {"value": value, "unitCode": PERCENT_UNIT}
+        elif stored:
+            prev = (stored.get(field) or {}).get("value")
+            if isinstance(prev, (int, float)) and not isinstance(prev, bool):
+                total += prev
     if total > 100 + _SUM_TOLERANCE:
         raise CompositionError(
             "nitrogenContent + phosphorusPentoxideContent + potassiumOxideContent "

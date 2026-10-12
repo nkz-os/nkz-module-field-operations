@@ -104,3 +104,15 @@ def test_complete_of_a_sowing_is_unchanged(mock_get, mock_complete, _validation)
     resp = client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS, json=body)
     assert resp.status_code == 200
     assert mock_complete.call_args.kwargs["extra_attrs"] == body
+
+
+@patch("app.api.operations.enforce_spraying_validation")
+@patch("app.api.operations.complete_operation")
+@patch("app.api.operations.get_entity")
+def test_complete_rejects_a_grade_over_100_against_stored_contents(mock_get, mock_complete, _validation):
+    mock_get.return_value = _entity(fertilizerType="NPK", fertilizerRate=300, nitrogenContent=46)
+    resp = client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS,
+                       json={"phosphorusPentoxideContent": 46, "potassiumOxideContent": 46})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "invalid_fertilizer_composition"
+    mock_complete.assert_not_called()

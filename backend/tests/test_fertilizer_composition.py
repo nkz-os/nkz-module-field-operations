@@ -94,3 +94,24 @@ def test_composition_on_other_operation_types_is_rejected(op_type):
 def test_sowing_body_passes_untouched():
     body = {"cropType": "wheat", "variety": "x", "seedingRate": 180, "irrigationRegime": "rainfed"}
     assert normalize_composition("sowing", body) == body
+
+
+def test_stored_contents_count_toward_the_sum():
+    stored = {"nitrogenContent": {"type": "Property", "value": 46, "unitCode": "P1"}}
+    with pytest.raises(CompositionError, match="exceed 100"):
+        normalize_composition(
+            "fertilization", {"phosphorusPentoxideContent": 46, "potassiumOxideContent": 46}, stored,
+        )
+
+
+def test_body_content_replaces_the_stored_one():
+    stored = {"nitrogenContent": {"type": "Property", "value": 46, "unitCode": "P1"}}
+    out = normalize_composition(
+        "fertilization", {"nitrogenContent": 10, "phosphorusPentoxideContent": 46}, stored,
+    )
+    assert out["nitrogenContent"] == {"value": 10.0, "unitCode": "P1"}
+
+
+def test_huge_integer_is_a_composition_error_not_overflow():
+    with pytest.raises(CompositionError, match="between 0 and 100"):
+        normalize_composition("fertilization", {"nitrogenContent": 10**400})

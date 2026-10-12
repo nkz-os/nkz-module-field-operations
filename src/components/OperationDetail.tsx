@@ -563,12 +563,14 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                   <p className="text-sm text-nkz-text-muted italic">
                     {t('form.readOnly')}
                   </p>
-                  {grade && (
+                  {(grade || nForm) && (
                     <dl className="mt-4 space-y-2">
-                      <div>
-                        <dt className="text-xs text-nkz-text-muted">{t('fields.compositionGrade')}</dt>
-                        <dd className="text-sm font-semibold text-nkz-text-primary">{grade}</dd>
-                      </div>
+                      {grade && (
+                        <div>
+                          <dt className="text-xs text-nkz-text-muted">{t('fields.compositionGrade')}</dt>
+                          <dd className="text-sm font-semibold text-nkz-text-primary">{grade}</dd>
+                        </div>
+                      )}
                       {nForm && (
                         <div>
                           <dt className="text-xs text-nkz-text-muted">{t('fields.nitrogenForm')}</dt>

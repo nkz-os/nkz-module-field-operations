@@ -82,6 +82,14 @@ class TestCreateOperation:
         # The returned dict matches the entity sent
         assert result is entity
 
+    def test_create_operation_keeps_unit_code_on_extra_attr(self, mock_client):
+        create_operation(
+            "test-tenant", "parcel:001", "fertilization", "WO-001", "op@x.com",
+            nitrogenContent={"value": 15.0, "unitCode": "P1"},
+        )
+        entity = mock_client.create_entity.call_args[0][0]
+        assert entity["nitrogenContent"] == {"type": "Property", "value": 15.0, "unitCode": "P1"}
+
     def test_create_operation_uses_hasAgriParcel_not_ref(self, mock_client):
         """Must use FIWARE-standard hasAgriParcel (not deprecated refAgriParcel)."""
         create_operation("test", "parcel:x", "spraying", "WO-001", "op@x.com")

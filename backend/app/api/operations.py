@@ -42,9 +42,9 @@ def _pesticide_422(detail: str):
     )
 
 
-def _composition_or_422(operation_type: str, body: dict) -> dict:
+def _composition_or_422(operation_type: str, body: dict, stored: dict | None = None) -> dict:
     try:
-        return normalize_composition(operation_type, body)
+        return normalize_composition(operation_type, body, stored)
     except CompositionError as exc:
         raise HTTPException(
             status_code=422,
@@ -221,7 +221,7 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     error = validate_sowing_method(op_type, body)
     if error:
         raise HTTPException(400, error)
-    body = _composition_or_422(op_type, body)
+    body = _composition_or_422(op_type, body, stored=entity)
 
     missing = validate_completion_fields(op_type, entity)
     for field in list(missing):
