@@ -17,6 +17,7 @@ from ..services.pesticide_validation import (
     enforce_spraying_validation,
     validate_spraying_product,
 )
+from ..fertilizer_composition import CompositionError, normalize_composition
 
 router = APIRouter(prefix="/api/field-operations", tags=["field-operations"])
 
@@ -39,6 +40,16 @@ def _pesticide_422(detail: str):
         status_code=422,
         detail={"code": "pesticide_not_authorized", "detail": detail},
     )
+
+
+def _composition_or_422(operation_type: str, body: dict) -> dict:
+    try:
+        return normalize_composition(operation_type, body)
+    except CompositionError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_fertilizer_composition", "detail": str(exc)},
+        )
 
 
 def _resolve_actor(roles: list) -> str:
@@ -107,6 +118,7 @@ async def create_field_operation(request: Request, body: dict):
     error = validate_sowing_method(body["operation_type"], body)
     if error:
         raise HTTPException(400, error)
+    body = _composition_or_422(body["operation_type"], body)
 
     try:
         enforce_spraying_validation(
@@ -147,6 +159,7 @@ async def create_work_order(request: Request, body: dict):
     error = validate_sowing_method(body["operation_type"], body)
     if error:
         raise HTTPException(400, error)
+    body = _composition_or_422(body["operation_type"], body)
 
     try:
         enforce_spraying_validation(
@@ -208,6 +221,7 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     error = validate_sowing_method(op_type, body)
     if error:
         raise HTTPException(400, error)
+    body = _composition_or_422(op_type, body)
 
     missing = validate_completion_fields(op_type, entity)
     for field in list(missing):
