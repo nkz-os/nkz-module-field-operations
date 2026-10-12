@@ -38,4 +38,8 @@ REQUIRED_FIELDS = {
     "scouting": ["platformType"],
 }
 
+# How a sowing was done, as the ESYRCE records it for cereals (MAPA, ESYRCE 2022, 3.6): directly
+# on the previous crop's stubble, or after tillage. Read by crop simulation (residue mulch).
+SOWING_METHODS = ["direct", "conventional"]
+
 INTERNAL_SERVICE_SECRET = os.getenv("INTERNAL_SERVICE_SECRET", "")

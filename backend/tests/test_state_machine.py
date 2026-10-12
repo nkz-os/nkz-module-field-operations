@@ -1,6 +1,6 @@
 """Tests for the AgriParcelOperation state machine."""
 import pytest
-from app.state_machine import can_transition, validate_completion_fields
+from app.state_machine import can_transition, validate_completion_fields, validate_sowing_method
 
 
 class TestCanTransition:
@@ -63,3 +63,26 @@ class TestValidateCompletionFields:
         entity = {"operationType": {"value": "irrigation"}}
         missing = validate_completion_fields("irrigation", entity)
         assert "waterPerHectare" in missing
+
+
+class TestValidateSowingMethod:
+    def test_absent_is_fine(self):
+        assert validate_sowing_method("sowing", {"cropType": "wheat"}) is None
+
+    def test_valid_values_on_sowing(self):
+        assert validate_sowing_method("sowing", {"sowingMethod": "direct"}) is None
+        assert validate_sowing_method("sowing", {"sowingMethod": "conventional"}) is None
+
+    def test_property_form_is_unwrapped(self):
+        assert validate_sowing_method("sowing", {"sowingMethod": {"type": "Property", "value": "direct"}}) is None
+
+    def test_unknown_value_rejected(self):
+        assert validate_sowing_method("sowing", {"sowingMethod": "no-till"}) == \
+            "sowingMethod must be one of: direct, conventional"
+
+    def test_only_on_sowing(self):
+        assert validate_sowing_method("tillage", {"sowingMethod": "direct"}) == \
+            "sowingMethod is only valid on sowing operations"
+
+    def test_empty_value_is_absent(self):
+        assert validate_sowing_method("sowing", {"sowingMethod": ""}) is None

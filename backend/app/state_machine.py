@@ -1,7 +1,7 @@
 """State machine for AgriParcelOperation lifecycle."""
 from dataclasses import dataclass
 from typing import Optional
-from .config import REQUIRED_FIELDS
+from .config import REQUIRED_FIELDS, SOWING_METHODS
 
 ALLOWED_TRANSITIONS = {
     "issued":       ["planned", "cancelled"],  # NEW: external work order, needs manager review
@@ -64,3 +64,17 @@ def validate_completion_fields(operation_type: str, entity: dict) -> list[str]:
         elif isinstance(val, dict) and val.get("value") in (None, ""):
             missing.append(field)
     return missing
+
+
+def validate_sowing_method(operation_type: str, attrs: dict) -> Optional[str]:
+    """Error message for an invalid optional ``sowingMethod``, else None."""
+    raw = attrs.get("sowingMethod")
+    if isinstance(raw, dict):
+        raw = raw.get("value")
+    if raw in (None, ""):
+        return None
+    if operation_type != "sowing":
+        return "sowingMethod is only valid on sowing operations"
+    if raw not in SOWING_METHODS:
+        return f"sowingMethod must be one of: {', '.join(SOWING_METHODS)}"
+    return None

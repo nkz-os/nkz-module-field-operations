@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
 from ..services.photo_service import upload_label_photo, get_label_photo
 from ..services.work_order_service import create_external_work_order
-from ..state_machine import can_transition, validate_completion_fields
+from ..state_machine import can_transition, validate_completion_fields, validate_sowing_method
 from ..orion_ops import (
     create_operation, get_entity, update_entity_attrs,
     start_operation, complete_operation,
@@ -104,6 +104,9 @@ async def create_field_operation(request: Request, body: dict):
     for field in required:
         if field not in body:
             raise HTTPException(400, f"Missing required field: {field}")
+    error = validate_sowing_method(body["operation_type"], body)
+    if error:
+        raise HTTPException(400, error)
 
     try:
         enforce_spraying_validation(
@@ -141,6 +144,9 @@ async def create_work_order(request: Request, body: dict):
     for field in required:
         if field not in body:
             raise HTTPException(400, f"Missing required field: {field}")
+    error = validate_sowing_method(body["operation_type"], body)
+    if error:
+        raise HTTPException(400, error)
 
     try:
         enforce_spraying_validation(
@@ -199,6 +205,9 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     result = can_transition(current_status, "completed", actor_role)
     if not result.allowed:
         raise HTTPException(403, result.reason)
+    error = validate_sowing_method(op_type, body)
+    if error:
+        raise HTTPException(400, error)
 
     missing = validate_completion_fields(op_type, entity)
     for field in list(missing):
