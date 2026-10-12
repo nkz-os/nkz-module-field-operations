@@ -114,6 +114,16 @@ function FormFields({ operationType, form, onChange, t, parcelId }: FormFieldsPr
               { value: 'rainfed',   label: t('fields.rainfed') },
             ]}
           />
+          <FieldSelect
+            label={t('fields.sowingMethod')}
+            field="sowingMethod"
+            form={form}
+            onChange={onChange}
+            options={[
+              { value: 'direct',       label: t('fields.directSowing') },
+              { value: 'conventional', label: t('fields.conventionalSowing') },
+            ]}
+          />
         </div>
       );
     case 'irrigation':
