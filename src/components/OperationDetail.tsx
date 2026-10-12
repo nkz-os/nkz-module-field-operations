@@ -3,6 +3,9 @@ import { useTranslation } from '@nekazari/sdk';
 import PhotoUpload from './PhotoUpload';
 import PesticideValidationBadge from './PesticideValidationBadge';
 import { usePesticideValidation } from '../hooks/usePesticideValidation';
+import {
+  NITROGEN_FORMS, formatGrade, nitrogenFormOf, prepareFertilizationBody,
+} from '../lib/fertilizerComposition';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -23,11 +26,12 @@ interface FormFieldsProps {
 }
 
 function FieldInput({
-  label, field, type = 'text', form, onChange, t,
+  label, field, type = 'text', inputMode, form, onChange, t,
 }: {
   label: string;
   field: string;
   type?: string;
+  inputMode?: 'decimal';
   form: Record<string, unknown>;
   onChange: (f: Record<string, unknown>) => void;
   t: (k: string) => string;
@@ -37,6 +41,7 @@ function FieldInput({
       <span className="text-xs font-medium text-nkz-text-muted">{label}</span>
       <input
         type={type}
+        inputMode={inputMode}
         value={(form[field] as string | number) ?? ''}
         onChange={e => onChange({ ...form, [field]: type === 'number' ? Number(e.target.value) : e.target.value })}
         className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
@@ -139,6 +144,16 @@ function FormFields({ operationType, form, onChange, t, parcelId }: FormFieldsPr
           <FieldInput label={t('fields.fertilizerType')}        field="fertilizerType"        form={form} onChange={onChange} t={t} />
           <FieldInput label={t('fields.fertilizerRate')}        field="fertilizerRate"        type="number" form={form} onChange={onChange} t={t} />
           <FieldInput label={t('fields.fertilizerComposition')} field="fertilizerComposition" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.nitrogenContent')}            field="nitrogenContent"            inputMode="decimal" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.phosphorusPentoxideContent')} field="phosphorusPentoxideContent" inputMode="decimal" form={form} onChange={onChange} t={t} />
+          <FieldInput label={t('fields.potassiumOxideContent')}      field="potassiumOxideContent"      inputMode="decimal" form={form} onChange={onChange} t={t} />
+          <FieldSelect
+            label={t('fields.nitrogenForm')}
+            field="nitrogenForm"
+            form={form}
+            onChange={onChange}
+            options={NITROGEN_FORMS.map(f => ({ value: f, label: t(`fields.nitrogenForms.${f}`) }))}
+          />
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -334,8 +349,19 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const canExtrapolate = areaCovered != null && status === 'incomplete';
   const canSiex        = ['spraying', 'fertilization'].includes(opType) && status === 'completed';
   const canEdit        = status === 'incomplete' || status === 'needs_review';
+  const grade      = opType === 'fertilization' ? formatGrade(operation) : null;
+  const nForm      = opType === 'fertilization' ? nitrogenFormOf(operation) : null;
 
   async function handleComplete() {
+    let payload: Record<string, unknown> = form;
+    if (opType === 'fertilization') {
+      const prepared = prepareFertilizationBody(form);
+      if (!prepared.ok) {
+        setActionError(t(prepared.errorKey));
+        return;
+      }
+      payload = prepared.body;
+    }
     setSaving(true);
     setActionError(null);
     try {
@@ -345,7 +371,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }
       );
       if (!resp.ok) {
@@ -533,9 +559,27 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
               parcelId={operation.hasAgriParcel?.object}
             />
               ) : (
-                <p className="text-sm text-nkz-text-muted italic">
-                  {t('form.readOnly')}
-                </p>
+                <>
+                  <p className="text-sm text-nkz-text-muted italic">
+                    {t('form.readOnly')}
+                  </p>
+                  {(grade || nForm) && (
+                    <dl className="mt-4 space-y-2">
+                      {grade && (
+                        <div>
+                          <dt className="text-xs text-nkz-text-muted">{t('fields.compositionGrade')}</dt>
+                          <dd className="text-sm font-semibold text-nkz-text-primary">{grade}</dd>
+                        </div>
+                      )}
+                      {nForm && (
+                        <div>
+                          <dt className="text-xs text-nkz-text-muted">{t('fields.nitrogenForm')}</dt>
+                          <dd className="text-sm font-semibold text-nkz-text-primary">{t(`fields.nitrogenForms.${nForm}`)}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+                </>
               )}
 
               {/* Photo upload (all editable operations) */}

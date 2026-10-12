@@ -8,7 +8,7 @@ Field operations management for the Nekazari FIWARE platform. Records agricultur
 |------|-------------|------------|
 | `sowing` | Siembra | cropType, variety, seedingRate, irrigationRegime |
 | `irrigation` | Riego | waterVolume, waterPerHectare |
-| `fertilization` | Abonado | fertilizerType, rate, NPK, organic |
+| `fertilization` | Abonado | fertilizerType, fertilizerRate, fertilizerComposition (free text), nitrogenContent / phosphorusPentoxideContent / potassiumOxideContent (% of product), nitrogenForm, organicFertilizer |
 | `spraying` | Fitosanitario | productName, rate, ROPO registry, method |
 | `tillage` | Laboreo | type (ploughing, harrowing, cultivating, rolling, subsoiling, roller crimper), depth |
 | `harvesting` | Cosecha | harvestedWeight, moisture, destination |
