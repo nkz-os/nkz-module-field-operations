@@ -166,7 +166,14 @@ class TestUpdateEntityAttrs:
         assert result == attrs
         mock_client._session.patch.assert_called_once()
         url = mock_client._session.patch.call_args[0][0]
-        assert "entity:1/attrs" in url
+        # Merge-patch on the entity: Orion-LD's PATCH .../attrs only updates attributes that
+        # already exist (404 "Attribute Not Found" for new ones, e.g. endedAt on completion).
+        assert url.endswith("/ngsi-ld/v1/entities/entity:1")
+
+    def test_update_entity_attrs_partial_update_is_a_failure(self, mock_client):
+        mock_client._session.patch.return_value = MagicMock(status_code=207, text='{"notUpdated": []}')
+        with pytest.raises(RuntimeError, match="Orion-LD patch failed"):
+            update_entity_attrs("test-tenant", "entity:1", {"endedAt": {"type": "Property", "value": "x"}})
 
     def test_update_entity_attrs_failure(self, mock_client):
         mock_client._session.patch.return_value = MagicMock(status_code=400, text="Bad")

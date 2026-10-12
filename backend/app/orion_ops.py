@@ -105,14 +105,16 @@ def get_entity(tenant_id: str, entity_id: str) -> Optional[dict]:
 
 
 def update_entity_attrs(tenant_id: str, entity_id: str, attrs: dict) -> dict:
-    """PATCH /attrs on an entity.
+    """Merge-patch an entity: creates missing attributes and overwrites existing ones.
 
-    SyncOrionClient does not have update_entity_attrs, so we use
+    Not PATCH .../attrs: Orion-LD updates only attributes that already exist there and
+    answers 207 with "Attribute Not Found" for new ones (startedAt, endedAt and the
+    completion fields), applying the rest. SyncOrionClient has no merge-patch, so we use
     the client's _session.patch directly with its header builder.
     """
     client = _get_client(tenant_id)
     resp = client._session.patch(
-        client._url(f"/ngsi-ld/v1/entities/{entity_id}/attrs"),
+        client._url(f"/ngsi-ld/v1/entities/{entity_id}"),
         json=attrs,
         headers=client._headers("application/json"),
         timeout=client.timeout,
