@@ -1,6 +1,7 @@
+import { API_ORIGIN } from '../lib/apiOrigin';
 import { useEffect, useState } from 'react';
 
-const API_BASE = '/api/field-operations';
+const API_BASE = `${API_ORIGIN}/api/field-operations`;
 const DEBOUNCE_MS = 400;
 
 export type PesticideValidationStatus =

@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../lib/apiOrigin';
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import PhotoUpload from './PhotoUpload';
@@ -14,7 +15,7 @@ interface OperationDetailProps {
   onSaved: () => void;
 }
 
-const API_BASE = '/api/field-operations';
+const API_BASE = `${API_ORIGIN}/api/field-operations`;
 
 // ─── Field form rendered per operationType ────────────────────────────────────
 interface FormFieldsProps {

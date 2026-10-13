@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../lib/apiOrigin';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import OperationCard, { Operation } from './OperationCard';
@@ -21,7 +22,7 @@ interface OperationsDashboardProps {
   onSelectOperation: (op: Operation) => void;
 }
 
-const API_BASE = '/api/field-operations';
+const API_BASE = `${API_ORIGIN}/api/field-operations`;
 
 const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onSelectOperation }) => {
   const { t } = useTranslation('field-operations');

@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../lib/apiOrigin';
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 
@@ -43,7 +44,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ operationId, currentUrl, onUp
       formData.append('operation_id', operationId);
 
       const resp = await fetch(
-        `/api/field-operations/operations/${encodeURIComponent(operationId)}/label-photo`,
+        `${API_ORIGIN}/api/field-operations/operations/${encodeURIComponent(operationId)}/label-photo`,
         { method: 'POST', body: formData, credentials: 'include' }
       );
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
