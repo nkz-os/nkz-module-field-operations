@@ -2,7 +2,11 @@
 import hmac
 import logging
 import os
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
+from nkz_platform_sdk.notify_auth import accept_master_from_env, verify_notification
+
+from ..services.crop_cycles_runtime import enqueue
+from ..services.crop_cycles_writer import parcels_in_notification
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -19,6 +23,22 @@ def _verify_internal_secret(request: Request) -> bool:
         logger.warning("INTERNAL_SERVICE_SECRET not configured — setup-parcel will fail")
         return False
     return secret == expected
+
+
+@router.post("/notify/crop-cycles", status_code=204)
+async def notify_crop_cycles(request: Request):
+    """Orion: AgriCrop / AgriParcelOperation changed. Queue the parcels; always 204, no body."""
+    if not verify_notification(
+        request.headers, secret=os.getenv("INTERNAL_SERVICE_SECRET", ""), accept_master=accept_master_from_env()
+    ):
+        raise HTTPException(401, "Unauthorized")
+    tenant_id = request.headers.get("NGSILD-Tenant") or request.headers.get("Fiware-Service")
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — a malformed delivery carries no parcels
+        body = {}
+    enqueue(tenant_id, parcels_in_notification((body or {}).get("data", [])))
+    return Response(status_code=204)
 
 
 @router.post("/setup-parcel")

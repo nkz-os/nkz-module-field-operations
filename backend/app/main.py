@@ -13,6 +13,8 @@ from .api.cue_bridge import router as cue_router
 from .api.internal import router as internal_router
 from .api.plan_summary import router as plan_summary_router
 from .services.timeout_worker import check_stale_operations
+from .services import crop_cycles_runtime
+from nkz_platform_sdk.lifecycle import lifecycle_hint_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,8 +27,11 @@ async def lifespan(application: FastAPI):
     logger.info("Starting NKZ Field Operations module")
     task = asyncio.create_task(check_stale_operations())
     logger.info("Stale operation check worker started")
+    crop_tasks = crop_cycles_runtime.start()
     yield
     task.cancel()
+    for t in crop_tasks:
+        t.cancel()
     logger.info("NKZ Field Operations module shutting down")
 
 
@@ -41,6 +46,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(operations_router)
 app.include_router(cue_router)
 app.include_router(internal_router)
+# Install/uninstall hint from entity-manager: only triggers a subscription reconcile.
+app.include_router(lifecycle_hint_router("/internal/lifecycle", crop_cycles_runtime.reconcile_subscriptions))
 app.include_router(plan_summary_router)
 
 
