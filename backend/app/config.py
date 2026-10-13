@@ -43,3 +43,10 @@ REQUIRED_FIELDS = {
 SOWING_METHODS = ["direct", "conventional"]
 
 INTERNAL_SERVICE_SECRET = os.getenv("INTERNAL_SERVICE_SECRET", "")
+
+# Crop-cycle writer (hasAgriCrop, actual sowing/termination dates). Off until the
+# platform switches it over from the core.
+CROP_CYCLES_WRITER_ENABLED = os.getenv("CROP_CYCLES_WRITER_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+CROP_CYCLES_NOTIFY_URL = os.getenv(
+    "CROP_CYCLES_NOTIFY_URL", "http://field-operations-api-service:8420/internal/notify/crop-cycles"
+)
