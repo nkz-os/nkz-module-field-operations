@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from .api.operations import router as operations_router
 from .api.cue_bridge import router as cue_router
 from .api.internal import router as internal_router
+from .api.plan_summary import router as plan_summary_router
 from .services.timeout_worker import check_stale_operations
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(operations_router)
 app.include_router(cue_router)
 app.include_router(internal_router)
+app.include_router(plan_summary_router)
 
 
 @app.get("/healthz")

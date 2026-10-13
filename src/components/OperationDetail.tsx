@@ -2,6 +2,8 @@ import { API_ORIGIN } from '../lib/apiOrigin';
 import React, { useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import PhotoUpload from './PhotoUpload';
+import PlanSummaryPanel from './PlanSummaryPanel';
+import { campaignOf, operationDay } from '../lib/planSummary';
 import PesticideValidationBadge from './PesticideValidationBadge';
 import { usePesticideValidation } from '../hooks/usePesticideValidation';
 import {
@@ -589,6 +591,11 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                   operationId={operation.id}
                   currentUrl={(operation['labelPhoto'] as { value?: { url?: string } } | undefined)?.value?.url}
                 />
+              )}
+
+              {operation.hasAgriParcel?.object && (
+                <PlanSummaryPanel parcelId={operation.hasAgriParcel.object}
+                                  campaign={campaignOf(operationDay(operation))} />
               )}
 
               {/* SIEX button */}
