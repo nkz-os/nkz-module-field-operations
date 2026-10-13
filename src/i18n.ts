@@ -140,6 +140,17 @@ const en = {
     notes: 'Notes',
     noSpecificFields: 'No specific fields for this operation type',
   },
+  planSummary: {
+    title: 'Fertilisation plan — campaign {{campaign}}',
+    noPlan: 'No signed fertilisation plan for campaign {{campaign}}.',
+    unavailable: 'The fertilisation plan could not be checked right now.',
+    signed: 'Signed {{date}} (version {{version}})',
+    byAdvisor: 'advisor {{name}} ({{number}})',
+    byHolder: 'holder {{name}}',
+    crop: 'Crop', previous: 'Previous crop', yield: 'Expected yield (kg/ha)',
+    n: 'N min / mean / max (kg/ha)', p2o5: 'P₂O₅ (kg/ha)', k2o: 'K₂O (kg/ha)',
+    pdf: 'Open the full plan (PDF)',
+  },
 };
 
 const es = {
@@ -279,6 +290,17 @@ const es = {
     coveragePct: 'Cobertura (%)',
     notes: 'Notas',
     noSpecificFields: 'Sin campos específicos para este tipo de operación',
+  },
+  planSummary: {
+    title: 'Plan de abonado — campaña {{campaign}}',
+    noPlan: 'No hay plan de abonado firmado para la campaña {{campaign}}.',
+    unavailable: 'No se ha podido consultar el plan de abonado ahora mismo.',
+    signed: 'Firmado el {{date}} (versión {{version}})',
+    byAdvisor: 'asesor {{name}} ({{number}})',
+    byHolder: 'titular {{name}}',
+    crop: 'Cultivo', previous: 'Cultivo anterior', yield: 'Rendimiento esperado (kg/ha)',
+    n: 'N mín / medio / máx (kg/ha)', p2o5: 'P₂O₅ (kg/ha)', k2o: 'K₂O (kg/ha)',
+    pdf: 'Abrir el plan completo (PDF)',
   },
 };
 
