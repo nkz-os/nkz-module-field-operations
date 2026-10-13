@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import OperationCard, { Operation } from './OperationCard';
 import OperationsTable from './OperationsTable';
+import { normalizeOperation } from '../lib/normalizeOperation';
 
 interface Tab {
   key: string;
@@ -42,7 +43,7 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
       const resp = await fetch(`${API_BASE}/operations?${params}`, { credentials: 'include' });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
-      setOperations(data.operations ?? []);
+      setOperations((data.operations ?? []).map(normalizeOperation));
     } catch (e) {
       setError(String(e));
     } finally {
