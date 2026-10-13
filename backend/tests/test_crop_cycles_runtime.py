@@ -105,13 +105,15 @@ async def test_sweep_reconciles_parcels_of_enabled_tenants(monkeypatch):
 
     async def fake_reconcile(client_, tenant, parcel, at=None):
         seen.append((tenant, parcel))
-        return [(parcel, "hasAgriCrop")]
+        return []
 
     monkeypatch.setattr(rt, "installed_tenants", fake_installed)
     monkeypatch.setattr(rt, "list_parcels", fake_list)
     monkeypatch.setattr(rt, "reconcile_parcel", fake_reconcile)
     stats = await rt.sweep_once()
-    assert seen == [("tenant-a", P)] and stats["written"] == 1
+    # The sweep queues; the worker is the only one that reconciles, so a sweep
+    # and a notification never write the same parcel at once.
+    assert seen == [] and rt._pending == {("tenant-a", P)} and stats["queued"] == 1
 
 
 @pytest.mark.asyncio
@@ -135,3 +137,29 @@ async def test_sweep_skips_when_platform_unavailable(monkeypatch):
 
 def test_lifecycle_route_mounted():
     assert TestClient(app).post("/internal/lifecycle").status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_drain_survives_a_client_that_cannot_be_built(monkeypatch):
+    rt._pending.update({("tenant-a", P), ("tenant-b", P)})
+    done = []
+
+    def flaky_client(tenant):
+        if tenant == "tenant-a":
+            raise RuntimeError("no client")
+        return rt.OrionClient(tenant, base_url="http://orion:1026")
+
+    async def fake_reconcile(client_, tenant, parcel, at=None):
+        done.append(tenant)
+        return []
+
+    monkeypatch.setattr(rt, "_client", flaky_client)
+    monkeypatch.setattr(rt, "reconcile_parcel", fake_reconcile)
+    await rt.drain()
+    assert done == ["tenant-b"] and rt._pending == set()
+
+
+@pytest.mark.parametrize("body", [[1, 2], {"data": {"type": "AgriCrop"}}, {"data": ["x", None]}])
+def test_receiver_tolerates_odd_bodies(body):
+    r = TestClient(app).post("/internal/notify/crop-cycles", json=body, headers=HEADERS)
+    assert r.status_code == 204 and rt._pending == set()

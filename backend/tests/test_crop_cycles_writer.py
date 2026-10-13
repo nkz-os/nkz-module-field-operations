@@ -22,13 +22,16 @@ def _404(url="x"):
 
 
 class FakeOrion:
-    def __init__(self, parcel=None, crops=(), ops=(), parcels=None):
+    def __init__(self, parcel=None, crops=(), ops=(), parcels=None, fail=False):
         self.parcel = parcel if parcel is not None else {"id": P, "type": "AgriParcel"}
         self.crops, self.ops = list(crops), list(ops)
         self.parcels = parcels
+        self.fail = fail
         self.writes, self.deletes = [], []
 
     async def get_entity(self, eid, options=None):
+        if self.fail:
+            raise httpx.ConnectError("down")
         if eid != P:
             raise _404()
         return self.parcel
@@ -144,3 +147,14 @@ def test_parcels_in_notification():
         {"type": "AgriCrop"},
     ]
     assert w.parcels_in_notification(entities) == {P, "urn:ngsi-ld:AgriParcel:p2"}
+
+
+@pytest.mark.asyncio
+async def test_reconcile_with_the_broker_down_writes_nothing():
+    from nkz_platform_sdk.crop_timeline import CropDataUnavailable
+
+    fake = FakeOrion(parcel={"id": P, "type": "AgriParcel", "hasAgriCrop": CROP["id"]},
+                     crops=[dict(PLANNED)], fail=True)
+    with pytest.raises(CropDataUnavailable):
+        await w.reconcile_parcel(fake, "t", P, AT)
+    assert fake.writes == [] and fake.deletes == []

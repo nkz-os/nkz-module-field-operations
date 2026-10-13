@@ -37,7 +37,9 @@ async def notify_crop_cycles(request: Request):
         body = await request.json()
     except Exception:  # noqa: BLE001 — a malformed delivery carries no parcels
         body = {}
-    enqueue(tenant_id, parcels_in_notification((body or {}).get("data", [])))
+    data = body.get("data") if isinstance(body, dict) else None
+    entities = [e for e in data if isinstance(e, dict)] if isinstance(data, list) else []
+    enqueue(tenant_id, parcels_in_notification(entities))
     return Response(status_code=204)
 
 

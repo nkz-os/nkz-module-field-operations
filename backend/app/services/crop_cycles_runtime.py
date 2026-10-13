@@ -55,32 +55,45 @@ def enqueue(tenant_id: str | None, parcels: set[str]) -> None:
     _event().set()
 
 
+async def _reconcile_one(tenant_id: str, parcel: str) -> None:
+    client = None
+    try:
+        client = _client(tenant_id)
+        await reconcile_parcel(client, tenant_id, parcel)
+    except Exception as e:  # noqa: BLE001 — one parcel never drops the batch
+        logger.warning("crop-cycle reconcile failed tenant=%s parcel=%s: %s", tenant_id, parcel, e)
+    finally:
+        if client is not None:
+            try:
+                await client.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
 async def drain() -> None:
-    """Reconcile every queued (tenant, parcel) once; one failing parcel never drops the batch."""
+    """Reconcile every queued (tenant, parcel) once; a parcel queued again meanwhile runs again."""
     while _pending:
         batch = sorted(_pending)
         _pending.clear()
         for tenant_id, parcel in batch:
-            client = _client(tenant_id)
-            try:
-                await reconcile_parcel(client, tenant_id, parcel)
-            except Exception as e:  # noqa: BLE001
-                logger.warning("crop-cycle reconcile failed tenant=%s parcel=%s: %s", tenant_id, parcel, e)
-            finally:
-                await client.close()
+            await _reconcile_one(tenant_id, parcel)
 
 
 async def worker() -> None:
+    """The only consumer of the queue: notifications and the sweep never write a parcel at once."""
     wake = _event()
     while True:
         await wake.wait()
         wake.clear()
-        await drain()
+        try:
+            await drain()
+        except Exception as e:  # noqa: BLE001 — the worker must outlive any batch
+            logger.error("crop-cycle worker: drain failed: %s", e)
 
 
 async def sweep_once() -> dict:
-    """Reconcile every parcel of the tenants where the module is enabled."""
-    stats = {"tenants": 0, "parcels": 0, "written": 0, "errors": 0}
+    """Queue every parcel of the tenants where the module is enabled; the worker reconciles."""
+    stats = {"tenants": 0, "queued": 0, "errors": 0}
     try:
         installs = await installed_tenants(MODULE_ID)
     except InstalledTenantsUnavailable as e:
@@ -88,21 +101,18 @@ async def sweep_once() -> dict:
         return {**stats, "skipped": "unavailable"}
     for tenant_id in installs.enabled:
         stats["tenants"] += 1
-        client = _client(tenant_id)
+        client = None
         try:
+            client = _client(tenant_id)
             parcels = await list_parcels(client)
-            for parcel in parcels:
-                stats["parcels"] += 1
-                try:
-                    stats["written"] += len(await reconcile_parcel(client, tenant_id, parcel))
-                except Exception as e:  # noqa: BLE001
-                    stats["errors"] += 1
-                    logger.warning("crop-cycle sweep failed tenant=%s parcel=%s: %s", tenant_id, parcel, e)
+            enqueue(tenant_id, set(parcels))
+            stats["queued"] += len(parcels)
         except Exception as e:  # noqa: BLE001
             stats["errors"] += 1
             logger.warning("crop-cycle sweep: parcels unreadable tenant=%s: %s", tenant_id, e)
         finally:
-            await client.close()
+            if client is not None:
+                await client.close()
     logger.info("crop-cycle sweep: %s", stats)
     return stats
 
