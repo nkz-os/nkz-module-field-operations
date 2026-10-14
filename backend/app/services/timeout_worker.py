@@ -4,7 +4,9 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from ..config import INCOMPLETE_TIMEOUT_HOURS
+from nkz_platform_sdk.installations import InstalledTenantsUnavailable, installed_tenants
+
+from ..config import INCOMPLETE_TIMEOUT_HOURS, MODULE_ID
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +34,13 @@ async def _process_stale_operations():
 
     # Import here to avoid circular imports at module level
     from ..orion_ops import query_operations, update_entity_attrs
-    from ..admin_db import get_active_tenants
 
-    tenants = await get_active_tenants()
-    if not tenants:
-        logger.info(
-            "No tenants discovered — stale check skipped. "
-            "Set ADMIN_POSTGRES_URL to enable tenant iteration."
-        )
+    try:
+        installs = await installed_tenants(MODULE_ID)
+    except InstalledTenantsUnavailable as e:
+        logger.warning("Stale check skipped: installed tenants unavailable: %s", e)
         return
+    tenants = list(installs.enabled)
 
     logger.debug("Stale check: cutoff=%s, tenants=%d", cutoff_iso, len(tenants))
 
