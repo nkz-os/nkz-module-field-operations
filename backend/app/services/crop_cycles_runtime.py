@@ -27,7 +27,7 @@ from .crop_cycles_writer import list_parcels, reconcile_parcel
 
 logger = logging.getLogger(__name__)
 
-MODULE_ID = "field-operations"
+MODULE_ID = config.MODULE_ID
 SWEEP_INTERVAL_S = 24 * 3600
 SUBSCRIPTION_HEAL_MINUTES = 60
 
