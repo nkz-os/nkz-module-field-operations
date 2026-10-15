@@ -3,6 +3,7 @@ import { i18n } from '@nekazari/sdk';
 const NS = 'field-operations';
 
 const en = {
+  retry: 'Retry',
   title: 'Field Operations',
   loading: 'Loading...',
   refresh: 'Refresh',
@@ -151,9 +152,54 @@ const en = {
     n: 'N min / mean / max (kg/ha)', p2o5: 'P₂O₅ (kg/ha)', k2o: 'K₂O (kg/ha)',
     pdf: 'Open the full plan (PDF)',
   },
+  record: {
+    "sow": "Record sowing",
+    "harvest": "Record harvest",
+    "titleSowing": "Record a sowing that happened",
+    "titleHarvest": "Record a harvest that happened",
+    "crop": "Parcel and crop",
+    "date": "Date",
+    "variety": "Variety",
+    "seedingRate": "Seed rate (kg/ha)",
+    "noMethod": "Not stated",
+    "harvestedWeight": "Harvested weight (kg)",
+    "submit": "Record",
+    "saving": "Recording…",
+    "loading": "Loading parcels…",
+    "loadError": "The parcels could not be loaded.",
+    "noTargetsSowing": "No planned crop is waiting to be sown. Plan it first in Crop planning.",
+    "noTargetsHarvest": "No sown crop is waiting to be harvested.",
+    "planned": "Sowing planned from {{date}}",
+    "campaign": "season {{campaign}}",
+    "successSowing": "Sowing recorded: {{crop}}",
+    "successHarvest": "Harvest recorded: {{crop}}",
+    "role": {
+      "cover_crop": "cover crop",
+      "catch_crop": "catch crop",
+      "main_crop": "main crop"
+    },
+    "error": {
+      "store_unavailable": "It could not be saved right now; try again in a moment.",
+      "invalid_parcel": "The parcel is not valid.",
+      "invalid_number": "Check the amounts: they must be numbers above zero.",
+      "perennial_harvest_unsupported": "Harvests of perennial crops (vineyard, olive, orchards) are not recorded here yet.",
+      "no_planned_crop": "No crop is planned on this parcel for that date: plan it first in Crop planning.",
+      "no_crop_to_close": "No crop on this parcel can be harvested on that date.",
+      "not_sown": "That crop is not recorded as sown: record its sowing first.",
+      "already_recorded": "This crop already has the same record.",
+      "future_date": "The date cannot be in the future.",
+      "date_outside_crop_window": "That date does not belong to the chosen crop: check the date or the crop.",
+      "missing_fields": "Required data is missing ({{detail}}).",
+      "invalid_date": "The date is not valid.",
+      "parcel_not_found": "The parcel was not found.",
+      "crop_data_unavailable": "The parcel's crops could not be read; try again.",
+      "generic": "It could not be recorded. Try again."
+    }
+  },
 };
 
 const es = {
+  retry: 'Reintentar',
   title: 'Operaciones de Campo',
   loading: 'Cargando...',
   refresh: 'Actualizar',
@@ -302,9 +348,54 @@ const es = {
     n: 'N mín / medio / máx (kg/ha)', p2o5: 'P₂O₅ (kg/ha)', k2o: 'K₂O (kg/ha)',
     pdf: 'Abrir el plan completo (PDF)',
   },
+  record: {
+    "sow": "Registrar siembra",
+    "harvest": "Registrar cosecha",
+    "titleSowing": "Registrar una siembra hecha",
+    "titleHarvest": "Registrar una cosecha hecha",
+    "crop": "Parcela y cultivo",
+    "date": "Fecha",
+    "variety": "Variedad",
+    "seedingRate": "Dosis de siembra (kg/ha)",
+    "noMethod": "Sin indicar",
+    "harvestedWeight": "Peso cosechado (kg)",
+    "submit": "Registrar",
+    "saving": "Registrando…",
+    "loading": "Cargando parcelas…",
+    "loadError": "No se han podido cargar las parcelas.",
+    "noTargetsSowing": "No hay cultivos planificados pendientes de siembra. Planifícalos primero en Planificación de cultivos.",
+    "noTargetsHarvest": "No hay cultivos sembrados pendientes de cosecha.",
+    "planned": "Siembra prevista desde el {{date}}",
+    "campaign": "campaña {{campaign}}",
+    "successSowing": "Siembra registrada: {{crop}}",
+    "successHarvest": "Cosecha registrada: {{crop}}",
+    "role": {
+      "cover_crop": "cubierta",
+      "catch_crop": "cultivo intermedio",
+      "main_crop": "cultivo principal"
+    },
+    "error": {
+      "store_unavailable": "No se ha podido guardar ahora mismo; inténtalo de nuevo en un momento.",
+      "invalid_parcel": "La parcela no es válida.",
+      "invalid_number": "Revisa las cantidades: deben ser números mayores que cero.",
+      "perennial_harvest_unsupported": "La cosecha de cultivos plurianuales (viña, olivo, frutales) aún no se registra aquí.",
+      "no_planned_crop": "No hay ningún cultivo planificado en esta parcela para esa fecha: planifícalo primero en Planificación de cultivos.",
+      "no_crop_to_close": "No hay ningún cultivo en esta parcela que cosechar en esa fecha.",
+      "not_sown": "Ese cultivo no consta como sembrado: registra antes su siembra.",
+      "already_recorded": "Ya hay un registro igual para este cultivo.",
+      "future_date": "La fecha no puede ser futura.",
+      "date_outside_crop_window": "Esa fecha no corresponde al cultivo elegido: revisa la fecha o el cultivo.",
+      "missing_fields": "Faltan datos obligatorios ({{detail}}).",
+      "invalid_date": "La fecha no es válida.",
+      "parcel_not_found": "No se encuentra la parcela.",
+      "crop_data_unavailable": "No se han podido leer los cultivos de la parcela; inténtalo de nuevo.",
+      "generic": "No se ha podido registrar. Inténtalo de nuevo."
+    }
+  },
 };
 
 const ca = {
+  retry: 'Torna-ho a provar',
   spraying: {
     pesticideAuthorized: 'Autoritzat per a aquest cultiu',
     pesticideRejected: 'No autoritzat per a aquest cultiu',
@@ -312,9 +403,54 @@ const ca = {
     pesticideChecking: 'Comprovant autorització…',
     pesticideSkipped: 'Validació omesa (sense cultiu assignat)',
   },
+  record: {
+    "sow": "Registrar sembra",
+    "harvest": "Registrar collita",
+    "titleSowing": "Registrar una sembra feta",
+    "titleHarvest": "Registrar una collita feta",
+    "crop": "Parcel·la i cultiu",
+    "date": "Data",
+    "variety": "Varietat",
+    "seedingRate": "Dosi de sembra (kg/ha)",
+    "noMethod": "Sense indicar",
+    "harvestedWeight": "Pes collit (kg)",
+    "submit": "Registrar",
+    "saving": "Registrant…",
+    "loading": "Carregant parcel·les…",
+    "loadError": "No s'han pogut carregar les parcel·les.",
+    "noTargetsSowing": "No hi ha cultius planificats pendents de sembra. Planifica'ls primer a Planificació de cultius.",
+    "noTargetsHarvest": "No hi ha cultius sembrats pendents de collita.",
+    "planned": "Sembra prevista des del {{date}}",
+    "campaign": "campanya {{campaign}}",
+    "successSowing": "Sembra registrada: {{crop}}",
+    "successHarvest": "Collita registrada: {{crop}}",
+    "role": {
+      "cover_crop": "coberta",
+      "catch_crop": "cultiu intermedi",
+      "main_crop": "cultiu principal"
+    },
+    "error": {
+      "store_unavailable": "Ara no s'ha pogut desar; torna-ho a provar d'aquí a un moment.",
+      "invalid_parcel": "La parcel·la no és vàlida.",
+      "invalid_number": "Revisa les quantitats: han de ser nombres més grans que zero.",
+      "perennial_harvest_unsupported": "La collita de cultius plurianuals (vinya, olivera, fruiters) encara no es registra aquí.",
+      "no_planned_crop": "No hi ha cap cultiu planificat en aquesta parcel·la per a aquesta data: planifica'l primer a Planificació de cultius.",
+      "no_crop_to_close": "No hi ha cap cultiu en aquesta parcel·la per collir en aquesta data.",
+      "not_sown": "Aquest cultiu no consta com a sembrat: registra abans la sembra.",
+      "already_recorded": "Ja hi ha un registre igual per a aquest cultiu.",
+      "future_date": "La data no pot ser futura.",
+      "date_outside_crop_window": "Aquesta data no correspon al cultiu triat: revisa la data o el cultiu.",
+      "missing_fields": "Falten dades obligatòries ({{detail}}).",
+      "invalid_date": "La data no és vàlida.",
+      "parcel_not_found": "No es troba la parcel·la.",
+      "crop_data_unavailable": "No s'han pogut llegir els cultius de la parcel·la; torna-ho a provar.",
+      "generic": "No s'ha pogut registrar. Torna-ho a provar."
+    }
+  },
 };
 
 const eu = {
+  retry: 'Saiatu berriro',
   spraying: {
     pesticideAuthorized: 'Labore honetarako baimendua',
     pesticideRejected: 'Ez dago baimenduta labore honetarako',
@@ -322,9 +458,54 @@ const eu = {
     pesticideChecking: 'Baimena egiaztatzen…',
     pesticideSkipped: 'Balioztapena saltatu da (ez dago laborerik esleituta)',
   },
+  record: {
+    "sow": "Erregistratu ereitea",
+    "harvest": "Erregistratu uzta",
+    "titleSowing": "Erregistratu egindako ereite bat",
+    "titleHarvest": "Erregistratu egindako uzta bat",
+    "crop": "Partzela eta laborea",
+    "date": "Data",
+    "variety": "Barietatea",
+    "seedingRate": "Ereite-dosia (kg/ha)",
+    "noMethod": "Adierazi gabe",
+    "harvestedWeight": "Bildutako pisua (kg)",
+    "submit": "Erregistratu",
+    "saving": "Erregistratzen…",
+    "loading": "Partzelak kargatzen…",
+    "loadError": "Ezin izan dira partzelak kargatu.",
+    "noTargetsSowing": "Ez dago ereiteko zain dagoen laborerik planifikatuta. Planifikatu lehenik Laboreen plangintzan.",
+    "noTargetsHarvest": "Ez dago biltzeko zain dagoen laborerik ereinda.",
+    "planned": "Ereitea aurreikusita: {{date}}tik aurrera",
+    "campaign": "{{campaign}} kanpaina",
+    "successSowing": "Ereitea erregistratuta: {{crop}}",
+    "successHarvest": "Uzta erregistratuta: {{crop}}",
+    "role": {
+      "cover_crop": "estalkia",
+      "catch_crop": "tarteko laborea",
+      "main_crop": "labore nagusia"
+    },
+    "error": {
+      "store_unavailable": "Ezin izan da orain gorde; saiatu berriro une batean.",
+      "invalid_parcel": "Partzela ez da baliozkoa.",
+      "invalid_number": "Berrikusi kopuruak: zero baino handiagoak izan behar dute.",
+      "perennial_harvest_unsupported": "Labore iraunkorren uzta (mahastia, olibondoa, fruta-arbolak) ez da oraindik hemen erregistratzen.",
+      "no_planned_crop": "Ez dago laborerik planifikatuta partzela honetan data horretarako: planifikatu lehenik Laboreen plangintzan.",
+      "no_crop_to_close": "Partzela honetan ez dago data horretan biltzeko laborerik.",
+      "not_sown": "Labore hori ez dago ereinda gisa erregistratuta: erregistratu lehenik ereitea.",
+      "already_recorded": "Labore honek badu erregistro bera.",
+      "future_date": "Data ezin da etorkizunekoa izan.",
+      "date_outside_crop_window": "Data hori ez dagokio aukeratutako laboreari: berrikusi data edo laborea.",
+      "missing_fields": "Derrigorrezko datuak falta dira ({{detail}}).",
+      "invalid_date": "Data ez da baliozkoa.",
+      "parcel_not_found": "Ez da partzela aurkitu.",
+      "crop_data_unavailable": "Ezin izan dira partzelaren laboreak irakurri; saiatu berriro.",
+      "generic": "Ezin izan da erregistratu. Saiatu berriro."
+    }
+  },
 };
 
 const fr = {
+  retry: 'Réessayer',
   spraying: {
     pesticideAuthorized: 'Autorisé pour cette culture',
     pesticideRejected: 'Non autorisé pour cette culture',
@@ -332,9 +513,54 @@ const fr = {
     pesticideChecking: 'Vérification de l\'autorisation…',
     pesticideSkipped: 'Validation ignorée (aucune culture attribuée)',
   },
+  record: {
+    "sow": "Enregistrer un semis",
+    "harvest": "Enregistrer une récolte",
+    "titleSowing": "Enregistrer un semis effectué",
+    "titleHarvest": "Enregistrer une récolte effectuée",
+    "crop": "Parcelle et culture",
+    "date": "Date",
+    "variety": "Variété",
+    "seedingRate": "Dose de semis (kg/ha)",
+    "noMethod": "Non précisé",
+    "harvestedWeight": "Poids récolté (kg)",
+    "submit": "Enregistrer",
+    "saving": "Enregistrement…",
+    "loading": "Chargement des parcelles…",
+    "loadError": "Impossible de charger les parcelles.",
+    "noTargetsSowing": "Aucune culture planifiée n'attend d'être semée. Planifiez-la d'abord dans Planification des cultures.",
+    "noTargetsHarvest": "Aucune culture semée n'attend d'être récoltée.",
+    "planned": "Semis prévu à partir du {{date}}",
+    "campaign": "campagne {{campaign}}",
+    "successSowing": "Semis enregistré : {{crop}}",
+    "successHarvest": "Récolte enregistrée : {{crop}}",
+    "role": {
+      "cover_crop": "couvert",
+      "catch_crop": "culture intermédiaire",
+      "main_crop": "culture principale"
+    },
+    "error": {
+      "store_unavailable": "Impossible d'enregistrer pour l'instant ; réessayez dans un moment.",
+      "invalid_parcel": "La parcelle n'est pas valide.",
+      "invalid_number": "Vérifiez les quantités : elles doivent être supérieures à zéro.",
+      "perennial_harvest_unsupported": "Les récoltes des cultures pérennes (vigne, olivier, vergers) ne sont pas encore enregistrées ici.",
+      "no_planned_crop": "Aucune culture n'est planifiée sur cette parcelle pour cette date : planifiez-la d'abord dans Planification des cultures.",
+      "no_crop_to_close": "Aucune culture de cette parcelle ne peut être récoltée à cette date.",
+      "not_sown": "Cette culture n'est pas enregistrée comme semée : enregistrez d'abord son semis.",
+      "already_recorded": "Cette culture a déjà le même enregistrement.",
+      "future_date": "La date ne peut pas être future.",
+      "date_outside_crop_window": "Cette date ne correspond pas à la culture choisie : vérifiez la date ou la culture.",
+      "missing_fields": "Des données obligatoires manquent ({{detail}}).",
+      "invalid_date": "La date n'est pas valide.",
+      "parcel_not_found": "Parcelle introuvable.",
+      "crop_data_unavailable": "Impossible de lire les cultures de la parcelle ; réessayez.",
+      "generic": "Impossible d'enregistrer. Réessayez."
+    }
+  },
 };
 
 const pt = {
+  retry: 'Tentar de novo',
   spraying: {
     pesticideAuthorized: 'Autorizado para esta cultura',
     pesticideRejected: 'Não autorizado para esta cultura',
@@ -342,7 +568,53 @@ const pt = {
     pesticideChecking: 'A verificar autorização…',
     pesticideSkipped: 'Validação ignorada (sem cultura atribuída)',
   },
+  record: {
+    "sow": "Registar sementeira",
+    "harvest": "Registar colheita",
+    "titleSowing": "Registar uma sementeira feita",
+    "titleHarvest": "Registar uma colheita feita",
+    "crop": "Parcela e cultura",
+    "date": "Data",
+    "variety": "Variedade",
+    "seedingRate": "Dose de sementeira (kg/ha)",
+    "noMethod": "Não indicado",
+    "harvestedWeight": "Peso colhido (kg)",
+    "submit": "Registar",
+    "saving": "A registar…",
+    "loading": "A carregar parcelas…",
+    "loadError": "Não foi possível carregar as parcelas.",
+    "noTargetsSowing": "Não há culturas planeadas à espera de sementeira. Planeie-as primeiro em Planeamento de culturas.",
+    "noTargetsHarvest": "Não há culturas semeadas à espera de colheita.",
+    "planned": "Sementeira prevista a partir de {{date}}",
+    "campaign": "campanha {{campaign}}",
+    "successSowing": "Sementeira registada: {{crop}}",
+    "successHarvest": "Colheita registada: {{crop}}",
+    "role": {
+      "cover_crop": "cobertura",
+      "catch_crop": "cultura intercalar",
+      "main_crop": "cultura principal"
+    },
+    "error": {
+      "store_unavailable": "Não foi possível guardar agora; tente de novo dentro de momentos.",
+      "invalid_parcel": "A parcela não é válida.",
+      "invalid_number": "Verifique as quantidades: devem ser números maiores que zero.",
+      "perennial_harvest_unsupported": "A colheita de culturas plurianuais (vinha, olival, pomares) ainda não se regista aqui.",
+      "no_planned_crop": "Não há nenhuma cultura planeada nesta parcela para essa data: planeie-a primeiro em Planeamento de culturas.",
+      "no_crop_to_close": "Não há nenhuma cultura nesta parcela para colher nessa data.",
+      "not_sown": "Essa cultura não consta como semeada: registe antes a sementeira.",
+      "already_recorded": "Esta cultura já tem o mesmo registo.",
+      "future_date": "A data não pode ser futura.",
+      "date_outside_crop_window": "Essa data não corresponde à cultura escolhida: verifique a data ou a cultura.",
+      "missing_fields": "Faltam dados obrigatórios ({{detail}}).",
+      "invalid_date": "A data não é válida.",
+      "parcel_not_found": "Parcela não encontrada.",
+      "crop_data_unavailable": "Não foi possível ler as culturas da parcela; tente de novo.",
+      "generic": "Não foi possível registar. Tente de novo."
+    }
+  },
 };
+
+export const resources = { en, es, ca, eu, fr, pt };
 
 function registerFieldOperationsTranslations(): void {
   if (!i18n || typeof (i18n as { addResourceBundle?: unknown }).addResourceBundle !== 'function') return;

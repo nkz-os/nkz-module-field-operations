@@ -33,8 +33,11 @@ def create_operation(
     work_order: str,
     operator: str,
     data_source: str = "manual",
+    status: str = "planned",
     **extra_attrs,
 ) -> dict:
+    """Create an AgriParcelOperation. ``status="completed"`` records one that already
+    happened (with its own startedAt/endedAt), as the UI's record form does."""
     if operation_type not in VALID_OPERATION_TYPES:
         raise ValueError(f"Invalid operationType: {operation_type}")
 
@@ -49,7 +52,7 @@ def create_operation(
         "hasAgriParcel": {"type": "Relationship", "object": parcel_id},
         "operationType": {"type": "Property", "value": operation_type},
         "workOrder": {"type": "Property", "value": work_order},
-        "status": {"type": "Property", "value": "planned"},
+        "status": {"type": "Property", "value": status},
         "operator": {"type": "Property", "value": operator},
         "dataSource": {"type": "Property", "value": data_source},
         "dateCreated": {"type": "Property", "value": {"@type": "DateTime", "@value": now}},
@@ -88,7 +91,7 @@ def create_operation(
             f"Orion-LD create failed ({e.response.status_code}): {e.response.text}"
         ) from e
 
-    logger.info("Created AgriParcelOperation %s (status=planned)", entity_id)
+    logger.info("Created AgriParcelOperation %s (status=%s)", entity_id, status)
     return entity
 
 
