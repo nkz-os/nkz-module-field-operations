@@ -13,6 +13,7 @@ from .api.operations import router as operations_router
 from .api.cue_bridge import router as cue_router
 from .api.internal import router as internal_router
 from .api.plan_summary import router as plan_summary_router
+from .api.record import router as record_router
 from .services.timeout_worker import check_stale_operations
 from .services import crop_cycles_runtime
 from nkz_platform_sdk.lifecycle import lifecycle_hint_router
@@ -50,6 +51,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 _user = [Depends(gateway_identity)]
 app.include_router(operations_router, dependencies=_user)
 app.include_router(cue_router, dependencies=_user)
+app.include_router(record_router, dependencies=_user)
 app.include_router(internal_router)
 # Install/uninstall hint from entity-manager: only triggers a subscription reconcile.
 app.include_router(lifecycle_hint_router("/internal/lifecycle", crop_cycles_runtime.reconcile_subscriptions))
