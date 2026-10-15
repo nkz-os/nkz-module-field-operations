@@ -93,6 +93,11 @@ async def record_operation(request: Request, body: dict):
         match = match_record(parcel_urn, crops, ops, op_type, day, _today(parcel))
         if not match.ok:
             raise HTTPException(status_code=409, detail={"code": match.reason})
+        chosen = body.get("crop_id")
+        if chosen and chosen != match.crop_id:
+            # The form names the crop the user meant; the date decides where the platform puts it.
+            raise HTTPException(status_code=409, detail={"code": "date_outside_crop_window",
+                                                         "landed_on": match.crop_id})
 
         attrs = {k: body[k] for k in ("seedingRate", "sowingMethod", "harvestedWeight",
                                        "harvestDestination", "notes") if body.get(k) not in (None, "")}

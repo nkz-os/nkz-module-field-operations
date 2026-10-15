@@ -130,3 +130,15 @@ def test_sowing_without_variety_in_plan_or_form_is_refused(env):
     r = TestClient(app).post(URL, headers=H, json=_sow())
     assert r.status_code == 422 and r.json()["detail"]["code"] == "missing_fields"
     assert env["created"] == []
+
+
+def test_date_landing_on_another_crop_than_the_chosen_one_is_refused(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(crop_id="urn:ngsi-ld:AgriCrop:t:p1:2027:0"))
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "date_outside_crop_window"
+    assert r.json()["detail"]["landed_on"] == PLANNED["id"]
+    assert env["created"] == []
+
+
+def test_chosen_crop_matching_the_date_is_recorded(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(crop_id=PLANNED["id"]))
+    assert r.status_code == 201
