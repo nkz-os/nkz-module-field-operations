@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
-HEADERS = {"X-Tenant-ID": "t1", "X-User-Roles": "field_manager"}
+HEADERS = {"X-User-ID": "u1", "X-Tenant-ID": "tenant-1", "X-User-Roles": "field_manager"}
 OP_ID = "urn:ngsi-ld:AgriParcelOperation:t1:abc"
 PARCEL = "urn:ngsi-ld:AgriParcel:t1:p1"
 BASE = "/api/field-operations"

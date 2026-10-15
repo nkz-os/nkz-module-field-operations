@@ -54,7 +54,7 @@ def test_list_products_uses_prefixed_path_and_internal_auth():
     with patch.object(cb.httpx, "AsyncClient", _FakeAsyncClient):
         r = _client().get(
             "/api/field-operations/cue/productos-autorizados?cultivo=trigo",
-            headers={"X-Tenant-ID": "montiko"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "montiko"},
         )
     assert r.status_code == 200
     method, url, params, headers = _FakeAsyncClient.calls[-1]
@@ -68,7 +68,7 @@ def test_product_detail_routes_by_tipo():
     with patch.object(cb.httpx, "AsyncClient", _FakeAsyncClient):
         r = _client().get(
             "/api/field-operations/cue/productos-autorizados/ES-12345?tipo=fitosanitario",
-            headers={"X-Tenant-ID": "montiko"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "montiko"},
         )
     assert r.status_code == 200
     _, url, _, headers = _FakeAsyncClient.calls[-1]
@@ -88,7 +88,7 @@ def test_siex_register_uses_prefixed_path_and_internal_auth():
          patch("app.orion_ops.update_entity_attrs", return_value=None):
         r = _client().post(
             "/api/field-operations/cue/operations/op1/registrar-siex",
-            headers={"X-Tenant-ID": "montiko", "X-User-Roles": "field_manager"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "montiko", "X-User-Roles": "field_manager"},
         )
     assert r.status_code == 200
     method, url, body, headers = _FakeAsyncClient.calls[-1]

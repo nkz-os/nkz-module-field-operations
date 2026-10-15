@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
-H = {"X-Tenant-ID": "test-tenant"}
+H = {"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"}
 BODY = {"parcel_id": "urn:ngsi-ld:AgriParcel:t:p1", "operation_type": "sowing", "work_order": "WO-1",
         "operator": "op@test.com"}
 
