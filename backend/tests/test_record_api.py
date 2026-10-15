@@ -142,3 +142,59 @@ def test_date_landing_on_another_crop_than_the_chosen_one_is_refused(env):
 def test_chosen_crop_matching_the_date_is_recorded(env):
     r = TestClient(app).post(URL, headers=H, json=_sow(crop_id=PLANNED["id"]))
     assert r.status_code == 201
+
+
+@pytest.mark.parametrize("exc", [RuntimeError("Orion-LD create failed (503)"),
+                                 __import__("requests").ConnectionError("down")])
+def test_broker_failure_on_write_is_a_503_with_a_code(env, monkeypatch, exc):
+    def boom(*a, **k):
+        raise exc
+    monkeypatch.setattr(route, "create_operation", boom)
+    r = TestClient(app).post(URL, headers=H, json=_sow())
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "store_unavailable"
+    assert env["reconciled"] == []
+
+
+@pytest.mark.parametrize("pid", ['p1" || true', "../x", "x" * 300])
+def test_malformed_parcel_id_is_refused(env, pid):
+    r = TestClient(app).post(URL, headers=H, json=_sow(parcel_id=pid))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_parcel"
+
+
+@pytest.mark.parametrize("field,value", [("seedingRate", "abc"), ("seedingRate", -5), ("seedingRate", 0)])
+def test_numbers_must_be_positive(env, field, value):
+    r = TestClient(app).post(URL, headers=H, json=_sow(**{field: value}))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_number"
+    assert env["created"] == []
+
+
+def test_harvest_weight_must_be_positive(env):
+    r = TestClient(app).post(URL, headers=H, json={"parcel_id": P, "operation_type": "harvesting",
+                                                   "date": "2026-11-10", "harvestedWeight": "-1"})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_number"
+
+
+def test_parcels_carry_the_crop_name_and_survive_odd_names(env):
+    named = dict(PLANNED, name="trigo")
+    env["orion"] = FakeOrion([named], parcels=[{"id": P, "name": {"es": "Soto"}}])
+    r = TestClient(app).get("/api/field-operations/parcels", headers=H)
+    assert r.status_code == 200
+    assert r.json()["parcels"][0]["cycles"][0]["name"] == "trigo"
+
+
+def test_perennial_is_not_offered_for_harvest(env):
+    vine = {"id": "urn:ngsi-ld:AgriCrop:t:p1:vine", "type": "AgriCrop", "refAgriParcel": P, "status": "active",
+            "cropRole": "main_crop", "species": "VITVI", "cropLifecycle": "perennial",
+            "plantingDate": "2010-03-01", "plantingDateSource": "manual"}
+    env["orion"] = FakeOrion([vine])
+    r = TestClient(app).get("/api/field-operations/parcels", headers=H)
+    assert r.json()["parcels"][0]["cycles"] == []
+
+
+def test_parcel_list_broker_failure_is_a_503(env):
+    class Down(FakeOrion):
+        async def query_entities(self, **kw):
+            raise __import__("httpx").ConnectError("down")
+    env["orion"] = Down()
+    r = TestClient(app).get("/api/field-operations/parcels", headers=H)
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "crop_data_unavailable"

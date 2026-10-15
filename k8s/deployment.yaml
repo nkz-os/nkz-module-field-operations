@@ -71,6 +71,15 @@ spec:
                 secretKeyRef:
                   name: internal-service-secret
                   key: INTERNAL_SERVICE_SECRET
+            # User routes accept only identity signed by the api-gateway; the
+            # service refuses to start without both.
+            - name: HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: secret
+            - name: REQUIRE_HMAC_SIGNATURE
+              value: "true"
             - name: FIELD_OPS_INCOMPLETE_TIMEOUT_H
               valueFrom:
                 configMapKeyRef:

@@ -11,7 +11,7 @@ import { RecordFormView, localToday, type RecordFormViewProps } from './RecordOp
 import type { RecordTarget } from '../lib/recordModel';
 
 const target: RecordTarget = { parcelId: 'urn:ngsi-ld:AgriParcel:b', parcelName: 'Soto Alto', cropId: 'c1',
-  species: 'TRZAX', role: 'main_crop', variety: 'KWS KEITUM', campaign: 2027, plannedStart: '2026-11-01' };
+  species: 'TRZAX', role: 'main_crop', variety: 'KWS KEITUM', campaign: 2027, plannedStart: '2026-11-01', name: null };
 
 const view = (over: Partial<RecordFormViewProps>) => renderToStaticMarkup(
   <RecordFormView kind="sowing" loading={false} loadError={false} targets={[target]} names={{ TRZAX: 'trigo' }}
@@ -44,7 +44,7 @@ describe('RecordFormView', () => {
   });
   it('submit stays disabled until a crop is chosen', () => {
     expect(view({})).toMatch(/id="record-submit"[^>]*\sdisabled=""/);
-    expect(view({ form: { parcelId: 'p', cropId: 'c1', date: '2026-11-20', variety: '', seedingRate: '',
+    expect(view({ form: { parcelId: 'p', cropId: 'c1', date: '2026-11-20', variety: '', seedingRate: '180',
       sowingMethod: '', harvestedWeight: '' } })).not.toMatch(/id="record-submit"[^>]*\sdisabled=""/);
   });
   it('load error offers a retry', () => {

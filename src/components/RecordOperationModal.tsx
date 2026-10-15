@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { API_ORIGIN } from '../lib/apiOrigin';
 import {
-  buildRecordBody, cropNamesFromFarm, errorKey, targetsFor,
+  bearerHeaders, buildRecordBody, canSubmit, cropLabel, cropNamesFromFarm, errorKey, selectTarget, targetsFor,
   type ParcelView, type RecordForm, type RecordKind, type RecordTarget,
 } from '../lib/recordModel';
 
@@ -35,7 +35,7 @@ export interface RecordFormViewProps {
 
 export function targetLabel(t: (k: string, o?: Record<string, unknown>) => string, target: RecordTarget,
   names: Record<string, string>): string {
-  const crop = (target.species && names[target.species]) || target.species || '—';
+  const crop = cropLabel(target, names);
   const role = target.role && target.role !== 'main_crop' ? ` (${t(`record.role.${target.role}`)})` : '';
   const campaign = target.campaign != null ? ` · ${t('record.campaign', { campaign: target.campaign })}` : '';
   return `${target.parcelName} — ${crop}${role}${campaign}`;
@@ -46,10 +46,7 @@ export function RecordFormView(p: RecordFormViewProps) {
   const { t } = useTranslation('field-operations');
   const sowing = p.kind === 'sowing';
   const chosen = p.targets.find((x) => x.cropId === p.form.cropId) ?? null;
-  const pick = (cropId: string) => {
-    const target = p.targets.find((x) => x.cropId === cropId);
-    p.onChange({ ...p.form, cropId, parcelId: target?.parcelId ?? '', variety: target?.variety ?? p.form.variety });
-  };
+  const pick = (cropId: string) => p.onChange(selectTarget(p.form, p.targets, cropId));
   const set = (field: keyof RecordForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     p.onChange({ ...p.form, [field]: e.target.value });
 
@@ -113,7 +110,7 @@ export function RecordFormView(p: RecordFormViewProps) {
       </div>
     );
   }
-  const canSubmit = !p.loading && !p.loadError && !p.saving && p.targets.length > 0 && Boolean(p.form.cropId && p.form.date);
+  const ready = !p.loading && !p.loadError && !p.saving && p.targets.length > 0 && canSubmit(p.kind, p.form);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={p.onClose}>
@@ -129,7 +126,7 @@ export function RecordFormView(p: RecordFormViewProps) {
           <button type="button" onClick={p.onClose} className="text-sm text-nkz-text-muted hover:text-nkz-text-primary px-3 py-1.5">
             {t('cancel')}
           </button>
-          <button id="record-submit" type="button" onClick={p.onSubmit} disabled={!canSubmit}
+          <button id="record-submit" type="button" onClick={p.onSubmit} disabled={!ready}
             className="text-sm font-medium rounded-md px-3 py-1.5 bg-nkz-accent-base text-white disabled:opacity-50">
             {p.saving ? t('record.saving') : t('record.submit')}
           </button>
@@ -170,7 +167,9 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
     }
     // Names only: the list works with crop codes when planning cannot be reached.
     try {
-      const resp = await fetch(`${API_ORIGIN}/api/graph/planning/farm`, { credentials: 'include' });
+      const resp = await fetch(`${API_ORIGIN}/api/graph/planning/farm`, {
+        credentials: 'include', headers: bearerHeaders(window as unknown as { keycloak?: { token?: string } }),
+      });
       if (resp.ok) setNames(cropNamesFromFarm(await resp.json(), i18n?.language?.slice(0, 2) || 'es'));
     } catch { /* names stay as codes */ }
   }, [kind, i18n]);

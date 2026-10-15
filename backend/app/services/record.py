@@ -64,6 +64,9 @@ def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: s
         return Match(False, "already_recorded")
     if not sowing and cycle.start.provenance not in _FACTS:
         return Match(False, "not_sown")
+    if not sowing and cycle.lifecycle == "perennial":
+        # For the platform a harvest ends the crop; a vineyard or orchard lives on after it.
+        return Match(False, "perennial_harvest_unsupported")
     crop = next((c for c in crops if c.get("id") == cycle.crop_id), {})
     return Match(True, crop_id=cycle.crop_id, species=cycle.species, variety=_value(crop.get("variety")),
                  role=cycle.role, campaign=cycle.campaign_label)

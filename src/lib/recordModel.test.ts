@@ -58,3 +58,53 @@ describe('cropNamesFromFarm', () => {
     expect(cropNamesFromFarm({ parcels: 'x' }, 'es')).toEqual({});
   });
 });
+
+import { bearerHeaders, canSubmit, cropLabel, selectTarget } from './recordModel';
+
+describe('selectTarget', () => {
+  const ts = targetsFor(parcels, 'sowing').concat([{ parcelId: 'p2', parcelName: 'X', cropId: 'c9', species: 'ZEAMX',
+    role: 'main_crop', variety: null, campaign: 2027, plannedStart: null, name: null }]);
+  const base = { parcelId: '', cropId: '', date: '2026-11-20', variety: '', seedingRate: '', sowingMethod: '', harvestedWeight: '' };
+  it('pre-fills the planned variety and clears it for a crop without one', () => {
+    const a = selectTarget(base, ts, 'c1');
+    expect(a).toMatchObject({ cropId: 'c1', parcelId: 'urn:ngsi-ld:AgriParcel:b', variety: 'KWS KEITUM' });
+    expect(selectTarget(a, ts, 'c9').variety).toBe('');
+    expect(selectTarget(a, ts, '')).toMatchObject({ cropId: '', parcelId: '', variety: '' });
+  });
+});
+
+describe('canSubmit', () => {
+  const f = { parcelId: 'p', cropId: 'c1', date: '2026-11-10', variety: 'v', seedingRate: '180', sowingMethod: '', harvestedWeight: '' };
+  it('needs a crop, a date and the positive numbers of that kind', () => {
+    expect(canSubmit('sowing', f)).toBe(true);
+    expect(canSubmit('sowing', { ...f, seedingRate: '180,5' })).toBe(true);
+    expect(canSubmit('sowing', { ...f, seedingRate: 'abc' })).toBe(false);
+    expect(canSubmit('sowing', { ...f, seedingRate: '0' })).toBe(false);
+    expect(canSubmit('sowing', { ...f, cropId: '' })).toBe(false);
+    expect(canSubmit('harvesting', { ...f, harvestedWeight: '41000' })).toBe(true);
+    expect(canSubmit('harvesting', { ...f, harvestedWeight: '' })).toBe(false);
+  });
+});
+
+describe('cropLabel', () => {
+  it('prefers the planning name, then the crop name, then the code', () => {
+    expect(cropLabel({ species: 'TRZAX', name: 'trigo blando' }, { TRZAX: 'trigo' })).toBe('trigo');
+    expect(cropLabel({ species: 'TRZAX', name: 'trigo blando' }, {})).toBe('trigo blando');
+    expect(cropLabel({ species: 'TRZAX', name: null }, {})).toBe('TRZAX');
+  });
+});
+
+describe('bearerHeaders', () => {
+  it('sends the session token planning requires, nothing without one', () => {
+    expect(bearerHeaders({ keycloak: { token: 'abc' } })).toEqual({ Authorization: 'Bearer abc' });
+    expect(bearerHeaders({})).toEqual({});
+  });
+});
+
+describe('errorKey (new codes)', () => {
+  it('knows the store, parcel, number and perennial codes', () => {
+    for (const c of ['store_unavailable', 'invalid_parcel', 'invalid_number', 'perennial_harvest_unsupported']) {
+      expect(errorKey(c)).toBe(`record.error.${c}`);
+    }
+  });
+});

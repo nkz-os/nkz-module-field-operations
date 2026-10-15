@@ -179,6 +179,10 @@ const en = {
       "main_crop": "main crop"
     },
     "error": {
+      "store_unavailable": "It could not be saved right now; try again in a moment.",
+      "invalid_parcel": "The parcel is not valid.",
+      "invalid_number": "Check the amounts: they must be numbers above zero.",
+      "perennial_harvest_unsupported": "Harvests of perennial crops (vineyard, olive, orchards) are not recorded here yet.",
       "no_planned_crop": "No crop is planned on this parcel for that date: plan it first in Crop planning.",
       "no_crop_to_close": "No crop on this parcel can be harvested on that date.",
       "not_sown": "That crop is not recorded as sown: record its sowing first.",
@@ -371,6 +375,10 @@ const es = {
       "main_crop": "cultivo principal"
     },
     "error": {
+      "store_unavailable": "No se ha podido guardar ahora mismo; inténtalo de nuevo en un momento.",
+      "invalid_parcel": "La parcela no es válida.",
+      "invalid_number": "Revisa las cantidades: deben ser números mayores que cero.",
+      "perennial_harvest_unsupported": "La cosecha de cultivos plurianuales (viña, olivo, frutales) aún no se registra aquí.",
       "no_planned_crop": "No hay ningún cultivo planificado en esta parcela para esa fecha: planifícalo primero en Planificación de cultivos.",
       "no_crop_to_close": "No hay ningún cultivo en esta parcela que cosechar en esa fecha.",
       "not_sown": "Ese cultivo no consta como sembrado: registra antes su siembra.",
@@ -422,6 +430,10 @@ const ca = {
       "main_crop": "cultiu principal"
     },
     "error": {
+      "store_unavailable": "Ara no s'ha pogut desar; torna-ho a provar d'aquí a un moment.",
+      "invalid_parcel": "La parcel·la no és vàlida.",
+      "invalid_number": "Revisa les quantitats: han de ser nombres més grans que zero.",
+      "perennial_harvest_unsupported": "La collita de cultius plurianuals (vinya, olivera, fruiters) encara no es registra aquí.",
       "no_planned_crop": "No hi ha cap cultiu planificat en aquesta parcel·la per a aquesta data: planifica'l primer a Planificació de cultius.",
       "no_crop_to_close": "No hi ha cap cultiu en aquesta parcel·la per collir en aquesta data.",
       "not_sown": "Aquest cultiu no consta com a sembrat: registra abans la sembra.",
@@ -473,6 +485,10 @@ const eu = {
       "main_crop": "labore nagusia"
     },
     "error": {
+      "store_unavailable": "Ezin izan da orain gorde; saiatu berriro une batean.",
+      "invalid_parcel": "Partzela ez da baliozkoa.",
+      "invalid_number": "Berrikusi kopuruak: zero baino handiagoak izan behar dute.",
+      "perennial_harvest_unsupported": "Labore iraunkorren uzta (mahastia, olibondoa, fruta-arbolak) ez da oraindik hemen erregistratzen.",
       "no_planned_crop": "Ez dago laborerik planifikatuta partzela honetan data horretarako: planifikatu lehenik Laboreen plangintzan.",
       "no_crop_to_close": "Partzela honetan ez dago data horretan biltzeko laborerik.",
       "not_sown": "Labore hori ez dago ereinda gisa erregistratuta: erregistratu lehenik ereitea.",
@@ -524,6 +540,10 @@ const fr = {
       "main_crop": "culture principale"
     },
     "error": {
+      "store_unavailable": "Impossible d'enregistrer pour l'instant ; réessayez dans un moment.",
+      "invalid_parcel": "La parcelle n'est pas valide.",
+      "invalid_number": "Vérifiez les quantités : elles doivent être supérieures à zéro.",
+      "perennial_harvest_unsupported": "Les récoltes des cultures pérennes (vigne, olivier, vergers) ne sont pas encore enregistrées ici.",
       "no_planned_crop": "Aucune culture n'est planifiée sur cette parcelle pour cette date : planifiez-la d'abord dans Planification des cultures.",
       "no_crop_to_close": "Aucune culture de cette parcelle ne peut être récoltée à cette date.",
       "not_sown": "Cette culture n'est pas enregistrée comme semée : enregistrez d'abord son semis.",
@@ -575,6 +595,10 @@ const pt = {
       "main_crop": "cultura principal"
     },
     "error": {
+      "store_unavailable": "Não foi possível guardar agora; tente de novo dentro de momentos.",
+      "invalid_parcel": "A parcela não é válida.",
+      "invalid_number": "Verifique as quantidades: devem ser números maiores que zero.",
+      "perennial_harvest_unsupported": "A colheita de culturas plurianuais (vinha, olival, pomares) ainda não se regista aqui.",
       "no_planned_crop": "Não há nenhuma cultura planeada nesta parcela para essa data: planeie-a primeiro em Planeamento de culturas.",
       "no_crop_to_close": "Não há nenhuma cultura nesta parcela para colher nessa data.",
       "not_sown": "Essa cultura não consta como semeada: registe antes a sementeira.",

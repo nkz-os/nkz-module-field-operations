@@ -69,3 +69,11 @@ def test_harvest_already_recorded_is_refused():
 def test_only_sowing_and_harvest_are_recorded_here():
     m = match_record(P, [PLANNED], [], "spraying", date(2026, 11, 10), TODAY)
     assert not m.ok and m.reason == "unsupported_type"
+
+
+def test_harvest_of_a_perennial_is_refused():
+    vine = dict(PLANNED, id="urn:ngsi-ld:AgriCrop:t:p1:vine", status="active", cropLifecycle="perennial",
+                harvestDate="2027-09-30")
+    sown = {"id": "s", "hasAgriParcel": P, "operationType": "sowing", "status": "completed", "endedAt": "2026-11-10"}
+    m = match_record(P, [vine], [sown], "harvesting", date(2027, 9, 20), date(2027, 9, 21))
+    assert not m.ok and m.reason == "perennial_harvest_unsupported"
