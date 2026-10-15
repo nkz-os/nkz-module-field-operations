@@ -4,6 +4,8 @@ import { useTranslation } from '@nekazari/sdk';
 import OperationCard, { Operation } from './OperationCard';
 import OperationsTable from './OperationsTable';
 import { normalizeOperation } from '../lib/normalizeOperation';
+import RecordOperationModal from './RecordOperationModal';
+import type { RecordKind } from '../lib/recordModel';
 
 interface Tab {
   key: string;
@@ -32,6 +34,8 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [viewMode, setViewMode]     = useState<'cards' | 'table'>('cards');
+  const [recording, setRecording]   = useState<RecordKind | null>(null);
+  const [notice, setNotice]         = useState<string | null>(null);
 
   const fetchOperations = useCallback(async () => {
     setLoading(true);
@@ -65,6 +69,22 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-nkz-border">
         <h2 className="text-nkz-text-primary font-bold text-sm">🌾 {t('title')}</h2>
+        <div className="flex items-center gap-2 ml-auto mr-3">
+          <button
+            id="field-ops-record-sowing"
+            onClick={() => { setNotice(null); setRecording('sowing'); }}
+            className="text-xs font-medium rounded-md px-2 py-1 bg-nkz-accent-base text-white"
+          >
+            {t('record.sow')}
+          </button>
+          <button
+            id="field-ops-record-harvest"
+            onClick={() => { setNotice(null); setRecording('harvesting'); }}
+            className="text-xs font-medium rounded-md px-2 py-1 border border-nkz-accent-base text-nkz-accent-base"
+          >
+            {t('record.harvest')}
+          </button>
+        </div>
         <button
           id="field-ops-refresh"
           onClick={fetchOperations}
@@ -81,6 +101,19 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
           {viewMode === 'cards' ? '📊' : '📇'}
         </button>
       </div>
+
+      {notice && (
+        <div role="status" className="mx-2 mt-2 rounded-md border border-nkz-border bg-nkz-surface px-3 py-2 text-xs text-nkz-text-primary">
+          {notice}
+        </div>
+      )}
+      {recording && (
+        <RecordOperationModal
+          kind={recording}
+          onClose={() => setRecording(null)}
+          onRecorded={(message) => { setRecording(null); setNotice(message); void fetchOperations(); }}
+        />
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-nkz-border overflow-x-auto flex-shrink-0">
