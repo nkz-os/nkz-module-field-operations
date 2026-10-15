@@ -92,7 +92,7 @@ class TestOperationsApiPesticide:
                     "operator": "op@test.com",
                     "productName": "Glyphosate",
                 },
-                headers={"X-Tenant-ID": "test-tenant"},
+                headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
             )
             assert resp.status_code == 422
             data = resp.json()["detail"]
@@ -115,7 +115,7 @@ class TestOperationsApiPesticide:
                     "operator": "op@test.com",
                     "productName": "Amistar",
                 },
-                headers={"X-Tenant-ID": "test-tenant"},
+                headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
             )
             assert resp.status_code == 200
             mock_create.assert_called_once()
@@ -133,7 +133,7 @@ class TestOperationsApiPesticide:
             resp = client.get(
                 "/api/field-operations/validate-pesticide",
                 params={"parcel_id": "p1", "product_name": "Amistar"},
-                headers={"X-Tenant-ID": "test-tenant"},
+                headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
             )
             assert resp.status_code == 200
             assert resp.json()["authorized"] is True

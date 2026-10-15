@@ -51,7 +51,7 @@ class TestLabelPhotoUploadIntegration:
         resp = client.post(
             f"/api/field-operations/operations/{op_id}/label-photo",
             files={"label_photo": ("test.jpg", b"fake-image-data", "image/jpeg")},
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 200, resp.text
@@ -77,7 +77,7 @@ class TestLabelPhotoUploadIntegration:
         resp = client.post(
             f"/api/field-operations/operations/{op_id}/label-photo",
             files={"label_photo": ("photo.jpg", b"data", "image/jpeg")},
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 404, resp.text
@@ -96,7 +96,7 @@ class TestLabelPhotoUploadIntegration:
         resp = client.post(
             f"/api/field-operations/operations/{op_id}/label-photo",
             files={"label_photo": ("big.jpg", b"x" * (11 * 1024 * 1024), "image/jpeg")},
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 400, resp.text
@@ -119,8 +119,8 @@ class TestLabelPhotoUploadIntegration:
             # No X-Tenant-ID header
         )
 
-        # Should succeed (empty tenant, but operation exists and MinIO works)
-        assert resp.status_code == 200, resp.text
+        # No identity from the gateway: refused before touching the operation.
+        assert resp.status_code == 401, resp.text
 
     @patch("app.api.operations.get_entity")
     @patch("app.api.operations.update_entity_attrs")
@@ -135,7 +135,7 @@ class TestLabelPhotoUploadIntegration:
         resp = client.post(
             f"/api/field-operations/operations/{op_id}/label-photo",
             files={"label_photo": ("malware.exe", b"data", "application/x-msdownload")},
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 400, resp.text
@@ -154,7 +154,7 @@ class TestLabelPhotoServingIntegration:
 
         resp = client.get(
             "/api/field-operations/photos/field-operations/test-tenant/abc123/label_a1b2.jpg",
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 200, resp.text
@@ -169,7 +169,7 @@ class TestLabelPhotoServingIntegration:
 
         resp = client.get(
             "/api/field-operations/photos/field-operations/test-tenant/abc123/label_a1b2.jpg",
-            headers={"X-Tenant-ID": "other-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "other-tenant"},
         )
 
         assert resp.status_code == 403, resp.text
@@ -183,7 +183,7 @@ class TestLabelPhotoServingIntegration:
 
         resp = client.get(
             "/api/field-operations/photos/field-operations/test-tenant/abc123/missing.jpg",
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 404, resp.text
@@ -196,7 +196,7 @@ class TestLabelPhotoServingIntegration:
 
         resp = client.get(
             "/api/field-operations/photos/too-short",
-            headers={"X-Tenant-ID": "test-tenant"},
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"},
         )
 
         assert resp.status_code == 403, resp.text

@@ -3,11 +3,12 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+from .auth import ensure_signature_enforced, gateway_identity
 from .api.operations import router as operations_router
 from .api.cue_bridge import router as cue_router
 from .api.internal import router as internal_router
@@ -25,6 +26,7 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     logger.info("Starting NKZ Field Operations module")
+    ensure_signature_enforced()
     task = asyncio.create_task(check_stale_operations())
     logger.info("Stale operation check worker started")
     crop_tasks = crop_cycles_runtime.start()
@@ -43,8 +45,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.include_router(operations_router)
-app.include_router(cue_router)
+# User routes: identity verified against the gateway signature (the tenant header is
+# only trusted once its X-Auth-Signature checks out).
+_user = [Depends(gateway_identity)]
+app.include_router(operations_router, dependencies=_user)
+app.include_router(cue_router, dependencies=_user)
 app.include_router(internal_router)
 # Install/uninstall hint from entity-manager: only triggers a subscription reconcile.
 app.include_router(lifecycle_hint_router("/internal/lifecycle", crop_cycles_runtime.reconcile_subscriptions))
