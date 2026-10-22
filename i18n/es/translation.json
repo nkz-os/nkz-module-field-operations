@@ -1,0 +1,163 @@
+{
+  "title": "Operaciones de Campo",
+  "loading": "Cargando...",
+  "refresh": "Actualizar",
+  "retry": "Reintentar",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "saving": "Guardando...",
+  "close": "Cerrar",
+  "tableView": "Vista de Tabla",
+  "cardView": "Vista de Tarjetas",
+  "noOperations": "No hay operaciones registradas",
+
+  "table": {
+    "date": "Fecha",
+    "type": "Tipo",
+    "workOrder": "Orden de Trabajo",
+    "product": "Producto",
+    "dose": "Dosis",
+    "operator": "Operario",
+    "source": "Origen",
+    "status": "Estado"
+  },
+  "errorLoading": "Error al cargar operaciones",
+
+  "tabs": {
+    "pending": "Pendientes",
+    "planned": "Planificadas",
+    "history": "Histórico",
+    "cancelled": "Canceladas"
+  },
+
+  "operationTypes": {
+    "sowing": "Siembra",
+    "irrigation": "Riego",
+    "fertilization": "Abonado",
+    "spraying": "Fitosanitario",
+    "tillage": "Laboreo",
+    "harvesting": "Cosecha",
+    "haymaking": "Henificado",
+    "baling": "Enfardado",
+    "scouting": "Monitorización"
+  },
+
+  "statuses": {
+    "planned": "Planificada",
+    "incomplete": "En curso",
+    "completed": "Completada",
+    "needs_review": "Requiere revisión",
+    "cancelled": "Cancelada"
+  },
+
+  "machineData": {
+    "title": "Datos de Máquina (ISOBUS)",
+    "fuelUsed": "Gasóleo consumido",
+    "engineHours": "Horas de motor",
+    "areaCovered": "Superficie trabajada",
+    "noData": "Modo manual: sin telemetría ISOBUS conectada"
+  },
+
+  "form": {
+    "title": "Datos de la Operación",
+    "complete": "Completar operación",
+    "readOnly": "Operación en modo solo lectura"
+  },
+
+  "fields": {
+    "cropType": "Cultivo (especie)",
+    "variety": "Variedad",
+    "seedingRate": "Dosis de siembra (kg/Ha)",
+    "irrigationRegime": "Régimen hídrico",
+    "sowingMethod": "Método de siembra",
+    "directSowing": "Siembra directa (sobre rastrojo)",
+    "conventionalSowing": "Siembra tradicional (con laboreo)",
+    "irrigated": "Regadío",
+    "rainfed": "Secano",
+    "waterVolume": "Volumen de agua (L)",
+    "waterPerHectare": "Agua por hectárea (L/Ha)",
+    "fertilizerType": "Tipo de fertilizante",
+    "fertilizerRate": "Dosis (kg/Ha)",
+    "fertilizerComposition": "Composición (NPK)",
+    "organicFertilizer": "Fertilizante orgánico",
+    "nitrogenContent": "Riqueza en N (%)",
+    "phosphorusPentoxideContent": "Riqueza en P₂O₅ (%)",
+    "potassiumOxideContent": "Riqueza en K₂O (%)",
+    "nitrogenForm": "Forma del nitrógeno",
+    "compositionGrade": "Riqueza N-P₂O₅-K₂O",
+    "compositionNotANumber": "Las riquezas deben ser números",
+    "compositionOutOfRange": "Cada riqueza debe estar entre 0 y 100 %",
+    "compositionSumTooHigh": "N + P₂O₅ + K₂O no puede superar el 100 % del producto",
+    "nitrogenForms": {
+      "ureic": "Ureica",
+      "ammoniacal": "Amoniacal",
+      "nitric": "Nítrica",
+      "organic": "Orgánica",
+      "mixed": "Mixta"
+    },
+    "productName": "Nombre del producto",
+    "productRate": "Dosis (kg/Ha)",
+    "productRegistryRef": "Nº Registro ROPO",
+    "applicationMethod": "Método de aplicación",
+    "foliar": "Foliar",
+    "soil": "Al suelo",
+    "drip": "Goteo",
+    "noSpecificFields": "Sin campos específicos para este tipo de operación",
+    "tillageType": "Tipo de labor",
+    "ploughing": "Alzar",
+    "harrowing": "Gradear",
+    "cultivating": "Cultivar",
+    "rolling": "Rodillar",
+    "subsoiling": "Subsolado",
+    "tillageDepth": "Profundidad (cm)",
+    "harvestedWeight": "Peso cosechado (kg)",
+    "moisture": "Humedad (%)",
+    "harvestDestination": "Destino",
+    "storage": "Almacén",
+    "sale": "Venta",
+    "feed": "Pienso",
+    "swathType": "Tipo de hilerado",
+    "tedding": "Esparcido",
+    "raking": "Hilerado",
+    "mowing": "Siega",
+    "baleType": "Tipo de bala",
+    "round": "Redonda",
+    "square": "Prisma",
+    "baleCount": "Nº de pacas",
+    "baleWeight": "Peso por paca (kg)",
+    "platformType": "Plataforma",
+    "drone": "Dron",
+    "rover": "Rover",
+    "satellite": "Satélite",
+    "manualInspection": "Inspección manual",
+    "sensorType": "Tipo de sensor",
+    "coveragePct": "Cobertura (%)",
+    "rollerCrimper": "Rodillo aplastador",
+    "coverMowing": "Siega de cubierta"
+  },
+
+  "extrapolate": {
+    "trigger": "Extrapolar a parcela completa",
+    "preview": "Vista previa de extrapolación",
+    "parcelAreaHa": "Superficie total de la parcela (Ha)",
+    "registered": "Ha registradas",
+    "total": "Ha totales",
+    "values": "valores actuales",
+    "confirm": "Confirmar extrapolación"
+  },
+
+  "siex": {
+    "register": "Registrar en SIEX"
+  },
+
+  "photo": {
+    "label": "Foto de etiqueta",
+    "uploaded": "Foto subida correctamente",
+    "change": "Cambiar foto",
+    "dropOrClick": "Arrastra o haz clic para subir foto",
+    "fileTooLarge": "Archivo demasiado grande (máx 10 MB)",
+    "invalidType": "Tipo de archivo no válido (JPG, PNG o HEIC)",
+    "uploading": "Subiendo...",
+    "uploadError": "Error al subir la foto. Inténtalo de nuevo."
+  }
+}
