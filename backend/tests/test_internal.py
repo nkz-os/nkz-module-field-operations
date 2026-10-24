@@ -46,6 +46,20 @@ class TestSetupParcel:
         del os.environ["INTERNAL_SERVICE_SECRET"]
 
 
+    def test_tenant_comes_from_the_body(self, caplog):
+        """entity-manager sends tenant_id in the body and no X-Tenant-ID header."""
+        os.environ["INTERNAL_SERVICE_SECRET"] = "test-secret"
+        with caplog.at_level("INFO"):
+            resp = client.post(
+                "/internal/setup-parcel",
+                json={"parcel_id": "urn:ngsi-ld:AgriParcel:p1", "tenant_id": "tenant-a", "action": "activate"},
+                headers={"X-Internal-Service-Secret": "test-secret"},
+            )
+        del os.environ["INTERNAL_SERVICE_SECRET"]
+        assert resp.status_code == 200
+        assert "tenant tenant-a" in caplog.text
+
+
 class TestDeactivateParcel:
     def test_deactivate_requires_secret(self):
         resp = client.post("/internal/deactivate-parcel", json={"parcel_id": "p1"})
