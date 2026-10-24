@@ -53,14 +53,15 @@ async def setup_parcel(request: Request, body: dict):
     if not _verify_internal_secret(request):
         raise HTTPException(403, "Invalid internal service secret")
 
-    tenant_id = _get_tenant(request)
+    # entity-manager sends the tenant in the body; the header is a fallback for direct calls.
+    tenant_id = body.get("tenant_id") or _get_tenant(request)
     parcel_id = body.get("parcel_id")
     if not parcel_id:
         raise HTTPException(400, "parcel_id is required")
 
     logger.info(
-        "Module field-operations activated for parcel %s (tenant %s)",
-        parcel_id, tenant_id,
+        "Module field-operations %s for parcel %s (tenant %s)",
+        body.get("action") or "activate", parcel_id, tenant_id,
     )
     return {
         "status": "ok",
