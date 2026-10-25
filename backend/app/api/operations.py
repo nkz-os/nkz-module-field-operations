@@ -230,7 +230,8 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     if missing:
         raise HTTPException(400, f"Cannot complete: missing required fields: {missing}")
 
-    parcel_ref = entity.get("hasAgriParcel", {}).get("object", "")
+    link = entity.get("hasAgriParcel") or entity.get("refAgriParcel") or {}
+    parcel_ref = link.get("object", "") if isinstance(link, dict) else ""
     merged = {
         "productName": _prop_val(entity.get("productName")),
         "productRate": _prop_val(entity.get("productRate")),
