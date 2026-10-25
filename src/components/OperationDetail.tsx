@@ -658,7 +658,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                     <button
                       id="sensor-revoke-btn"
                       onClick={() => setSensorMode('revoke')}
-                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-danger text-nkz-danger-strong hover:bg-nkz-danger-soft transition-colors"
                     >
                       {t('sensorOp.revoke')}
                     </button>
