@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
 from ..services.photo_service import upload_label_photo, get_label_photo
 from ..services.work_order_service import create_external_work_order
-from ..state_machine import can_transition, validate_completion_fields, validate_sowing_method
+from ..state_machine import SENSOR_REVOKE_ACTORS, can_transition, validate_completion_fields, validate_sowing_method
 from ..orion_ops import (
     create_operation, get_entity, update_entity_attrs,
     start_operation, complete_operation,
@@ -269,6 +269,8 @@ def _log_with(entity: dict, entry: dict) -> dict:
 async def api_correct_operation(operation_id: str, request: Request, body: dict):
     """Correct the dose of a completed irrigation operation created by the water-meter bridge."""
     tenant_id = _get_tenant(request)
+    if _resolve_actor(_get_roles(request)) not in SENSOR_REVOKE_ACTORS:
+        raise HTTPException(403, "Only a technical consultant or a tenant admin can correct sensor operations")
     entity = _get_or_404(tenant_id, operation_id)
     if (_prop_val(entity.get("status")) != "completed"
             or _prop_val(entity.get("dataSource")) != "sensor"

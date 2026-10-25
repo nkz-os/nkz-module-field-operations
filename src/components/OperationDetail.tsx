@@ -1,6 +1,6 @@
 import { API_ORIGIN } from '../lib/apiOrigin';
 import React, { useState } from 'react';
-import { useTranslation } from '@nekazari/sdk';
+import { useAuth, useTranslation } from '@nekazari/sdk';
 import PhotoUpload from './PhotoUpload';
 import PlanSummaryPanel from './PlanSummaryPanel';
 import { campaignOf, operationDay } from '../lib/planSummary';
@@ -9,7 +9,7 @@ import { usePesticideValidation } from '../hooks/usePesticideValidation';
 import {
   NITROGEN_FORMS, formatGrade, nitrogenFormOf, prepareFertilizationBody,
 } from '../lib/fertilizerComposition';
-import { canCorrectSensorOperation } from '../lib/sensorOperation';
+import { canCorrectSensorOperation, SENSOR_OPERATION_MANAGER_ROLES } from '../lib/sensorOperation';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -356,7 +356,9 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const canExtrapolate = areaCovered != null && status === 'incomplete';
   const canSiex        = ['spraying', 'fertilization'].includes(opType) && status === 'completed';
   const canEdit        = status === 'incomplete' || status === 'needs_review';
-  const canCorrectSensor = canCorrectSensorOperation(status, dataSource, opType);
+  const auth = useAuth();
+  const canCorrectSensor = canCorrectSensorOperation(status, dataSource, opType)
+    && auth.hasAnyRole(SENSOR_OPERATION_MANAGER_ROLES);
   const grade      = opType === 'fertilization' ? formatGrade(operation) : null;
   const nForm      = opType === 'fertilization' ? nitrogenFormOf(operation) : null;
 

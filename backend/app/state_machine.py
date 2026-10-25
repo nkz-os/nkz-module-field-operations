@@ -24,7 +24,7 @@ ACTORS_FOR_TRANSITION = {
 }
 
 # A completed operation can be revoked only when the water-meter bridge created it.
-SENSOR_REVOKE_ACTORS = ["user", "field_manager", "tenant_admin"]
+SENSOR_REVOKE_ACTORS = ["field_manager", "tenant_admin"]  # technical consultant or tenant admin (owner)
 
 
 

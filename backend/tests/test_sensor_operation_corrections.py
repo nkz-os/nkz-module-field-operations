@@ -7,7 +7,8 @@ from app.main import app
 from app.state_machine import can_transition
 
 client = TestClient(app)
-H = {"X-User-ID": "u1", "X-Tenant-ID": "test-tenant"}
+H = {"X-User-ID": "u1", "X-Tenant-ID": "tenant-a", "X-User-Roles": "field_manager"}
+FARMER = {"X-User-ID": "u2", "X-Tenant-ID": "tenant-a", "X-User-Roles": "Farmer"}
 BASE = "/api/field-operations/operations/op1"
 
 
@@ -27,7 +28,8 @@ def _post(path, body, op, headers=H):
 
 
 def test_state_machine_completed_cancel_only_for_sensor():
-    assert can_transition("completed", "cancelled", "user", data_source="sensor").allowed
+    assert can_transition("completed", "cancelled", "field_manager", data_source="sensor").allowed
+    assert not can_transition("completed", "cancelled", "user", data_source="sensor").allowed
     assert not can_transition("completed", "cancelled", "user").allowed
     assert not can_transition("completed", "cancelled", "user", data_source="manual").allowed
     assert not can_transition("completed", "cancelled", "system", data_source="sensor").allowed
@@ -120,3 +122,10 @@ def test_correct_scales_volume_with_dose():
 def test_correct_without_volume_updates_dose_only():
     r, upd = _post("correct", {"waterPerHectare": 60, "reason": "x"}, _op())
     assert "waterVolume" not in upd.call_args.args[2]
+
+
+def test_farmer_cannot_revoke_or_correct_sensor_operation():
+    r, upd = _post("cancel", {"cancellationReason": "x"}, _op(), headers=FARMER)
+    assert r.status_code == 403 and not upd.called
+    r, upd = _post("correct", {"waterPerHectare": 90, "reason": "x"}, _op(), headers=FARMER)
+    assert r.status_code == 403 and not upd.called
