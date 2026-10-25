@@ -193,16 +193,15 @@ async def run_bridge_for_tenant(tenant_id: str, today: date) -> dict:
     """One pass for a tenant over the last closed days. Returns write counts.
 
     ``skipped`` counts devices without an owner or readable series, and parcel-days left
-    unwritten (no area, a meter of the parcel unknown that day, or a person's decision)."""
+    unwritten (no area, zero dose, a meter of the parcel unknown that day, a person's decision
+    or a failed write)."""
     counts = {"created": 0, "updated": 0, "unchanged": 0, "skipped": 0}
     days = closed_days(today)
-    start = datetime.combine(days[0] - timedelta(days=1), time.min, tzinfo=timezone.utc)
-    end = datetime.combine(today, time.min, tzinfo=timezone.utc)
     client = _orion(tenant_id)
     try:
         meters = [d for d in await _list_devices(client) if d.get("id") and measures_water(d)]
-        # parcel -> device -> {day: litres}; a device with no readable series maps to None
-        by_parcel: dict[str, dict[str, dict[date, float] | None]] = {}
+        # parcel -> device -> {day: litres}; an unknown day is absent
+        by_parcel: dict[str, dict[str, dict[date, float]]] = {}
         for device in meters:
             device_urn = device["id"]
             parcel_urn = owner_parcel(device)
@@ -211,10 +210,10 @@ async def run_bridge_for_tenant(tenant_id: str, today: date) -> dict:
                                tenant_id, device_urn)
                 counts["skipped"] += 1
                 continue
-            readings = await fetch_counter_readings(tenant_id, device_urn, start, end)
+            readings = await _device_readings(tenant_id, device_urn, days)
             if readings is None:
                 counts["skipped"] += 1
-                by_parcel.setdefault(parcel_urn, {})[device_urn] = None
+                by_parcel.setdefault(parcel_urn, {})[device_urn] = {}
                 continue
             volumes = daily_volumes(readings, days)
             for day in days:
@@ -232,13 +231,33 @@ async def run_bridge_for_tenant(tenant_id: str, today: date) -> dict:
     return counts
 
 
+async def _device_readings(tenant_id: str, device_urn: str,
+                           days: list[date]) -> list[tuple[datetime, float]] | None:
+    """Counter readings of the window plus the day before it, read one UTC day per request
+    (the reader's row limit would cut a longer range). A day the reader could not give, or
+    gave cut, contributes no readings, so it and the day after it come out unknown.
+    None when no day could be read at all."""
+    readings: list[tuple[datetime, float]] = []
+    read_any = False
+    for day in [days[0] - timedelta(days=1), *days]:
+        start = datetime.combine(day, time.min, tzinfo=timezone.utc)
+        part = await fetch_counter_readings(tenant_id, device_urn, start, start + timedelta(days=1))
+        if part is None:
+            logger.warning("irrigation bridge: readings unknown tenant=%s device=%s day=%s",
+                           tenant_id, device_urn, day)
+            continue
+        read_any = True
+        readings.extend(part)
+    return readings if read_any else None
+
+
 async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
-                         per_device: dict[str, dict[date, float] | None], days: list[date],
+                         per_device: dict[str, dict[date, float]], days: list[date],
                          counts: dict) -> None:
     devices = sorted(per_device)
     totals: dict[date, float] = {}
     for day in days:
-        known = [v.get(day) if v is not None else None for v in per_device.values()]
+        known = [v.get(day) for v in per_device.values()]
         if all(k is None for k in known):
             continue  # no meter of this parcel knows the day: nothing to say
         if any(k is None for k in known):
@@ -265,11 +284,25 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
     for day, litres in sorted(totals.items()):
         volume_m3, per_ha = _dose(litres, area)
         op_id = operation_id(tenant_id, parcel_urn, day)
+        if per_ha <= 0:
+            logger.info("irrigation bridge: dose rounds to 0 L/ha, skipped tenant=%s parcel=%s day=%s",
+                        tenant_id, parcel_urn, day)
+            counts["skipped"] += 1
+            continue
         try:
             existing = await _get_or_none(client, op_id)
             if existing is None:
-                await client.create_entity(
-                    _new_operation(client, op_id, parcel_urn, day, volume_m3, per_ha, devices))
+                try:
+                    await client.create_entity(
+                        _new_operation(client, op_id, parcel_urn, day, volume_m3, per_ha, devices))
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code != 409:
+                        raise
+                    # Another replica created it between our read and write.
+                    counts["unchanged"] += 1
+                    logger.info("irrigation bridge: already created tenant=%s parcel=%s op=%s",
+                                tenant_id, parcel_urn, op_id)
+                    continue
                 counts["created"] += 1
                 logger.info("irrigation bridge: created tenant=%s parcel=%s op=%s litres=%.0f",
                             tenant_id, parcel_urn, op_id, litres)

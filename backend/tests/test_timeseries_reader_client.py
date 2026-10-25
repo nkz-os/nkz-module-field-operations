@@ -52,3 +52,21 @@ async def test_reader_without_secret_returns_none(monkeypatch):
     transport = httpx.MockTransport(lambda r: pytest.fail("must not call the reader unsigned"))
     assert await fetch_counter_readings("tenant-a", "urn:ngsi-ld:Device:m-1", START, END,
                                         transport=transport) is None
+
+
+@pytest.mark.asyncio
+async def test_reader_full_page_is_unknown(monkeypatch):
+    from app.services import timeseries
+    monkeypatch.setenv("HMAC_SECRET", "test-secret")
+    monkeypatch.setattr(timeseries, "READ_LIMIT", 3)
+    body = {"timestamps": ["2026-10-02T00:00:00Z", "2026-10-02T00:01:00Z", "2026-10-02T00:02:00Z"],
+            "attributes": {"waterConsumption": [1, 2, 3]}}
+    seen = {}
+
+    def handler(request):
+        seen["limit"] = request.url.params["limit"]
+        return httpx.Response(200, json=body)
+
+    assert await fetch_counter_readings("tenant-a", "urn:ngsi-ld:Device:m-1", START, END,
+                                        transport=httpx.MockTransport(handler)) is None
+    assert seen["limit"] == "3"

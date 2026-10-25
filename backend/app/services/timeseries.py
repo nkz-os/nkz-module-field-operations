@@ -16,9 +16,13 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT_S = 30.0
 ATTRIBUTE = "waterConsumption"
-# The reader cuts the series at `limit` rows, oldest first, so a full page may have lost the
-# latest readings. A full page is treated as unknown rather than read as a smaller volume.
-READ_LIMIT = 20000
+# The reader cuts at `limit` RAW telemetry rows, oldest first, before filtering by attribute,
+# and its answer carries no row count or truncation flag. Callers therefore read one UTC day per
+# request, and a page that comes back full is treated as unknown, never as a smaller volume.
+# ASSUMPTION: the meter's rows carry waterConsumption (a water-meter Device), so a cut page shows
+# up as `limit` timestamps. 10000 rows/day is one row every 8.6 s: a meter at one reading a
+# minute (1440/day) stays far below it, even with a second measurement on rows of its own.
+READ_LIMIT = 10000
 
 
 def _base_url() -> str:

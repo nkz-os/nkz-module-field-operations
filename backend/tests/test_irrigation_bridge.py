@@ -1,5 +1,5 @@
 """Daily bridge: water meter counters -> one completed irrigation operation per parcel-day."""
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -64,13 +64,15 @@ class FakeOrion:
 
 @pytest.fixture
 def world(monkeypatch):
-    state = {"readings": {}}
+    state = {"readings": {}, "calls": []}
 
     def install(devices, parcels=None, ops=None, readings=None):
         orion = FakeOrion(devices, parcels if parcels is not None else {PARCEL: {"id": PARCEL, "area": 0.5}},
                           ops)
         state["orion"] = orion
         state["readings"] = readings or {}
+        state["calls"] = []
+        orion.calls = state["calls"]
         monkeypatch.setattr(bridge, "_orion", lambda tenant_id: orion)
 
         async def fake_patch(client, entity_id, attrs):
@@ -78,7 +80,13 @@ def world(monkeypatch):
         monkeypatch.setattr(bridge, "_merge_patch", fake_patch)
 
         async def fake_fetch(tenant_id, device_urn, start, end):
-            return state["readings"].get(device_urn, [])
+            state["calls"].append((device_urn, start, end))
+            series = state["readings"].get(device_urn, [])
+            if callable(series):
+                return series(start, end)
+            if series is None:
+                return None
+            return [r for r in series if start <= r[0] < end]
         monkeypatch.setattr(bridge, "fetch_counter_readings", fake_fetch)
         return orion
     return install
@@ -172,8 +180,8 @@ async def test_bridge_skips_without_owner_or_area(world):
                   parcels=parcels, readings={m1: _counter(0, 1000), m2: _counter(0, 1000)})
     counts = await run_bridge_for_tenant("tenant-a", TODAY)
     assert orion.created == [] and orion.patched == []
-    assert counts["created"] == 0
-    assert counts["skipped"] >= 2
+    # m-1: no parcel owner; m-2: one parcel-day on a parcel without area.
+    assert counts == {"created": 0, "updated": 0, "unchanged": 0, "skipped": 2}
 
 
 @pytest.mark.asyncio
@@ -258,3 +266,75 @@ async def test_bridge_loop_survives_errors(monkeypatch):
     monkeypatch.setattr(bridge, "run_bridge_for_tenant", fake_run)
     await bridge._run_once()
     assert seen == ["tenant-a", "tenant-b"]
+
+
+@pytest.mark.asyncio
+async def test_bridge_reads_one_day_per_request(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    prev = date(2026, 10, 23)
+    # One reading a minute over two days, 2 L a minute on DAY only.
+    series = [(_t(prev, 0) + timedelta(minutes=i), 100000.0) for i in range(1440)]
+    series += [(_t(DAY, 0) + timedelta(minutes=i), 100000.0 + 2 * (i + 1)) for i in range(1440)]
+    orion = world([_device(m1)], parcels={PARCEL: {"id": PARCEL, "area": 1.0}}, readings={m1: series})
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+
+    spans = [(start, end) for _, start, end in orion.calls]
+    assert len(spans) == 8  # the day before the window + 7 closed days
+    assert all(end - start == timedelta(days=1) and start.hour == 0 for start, end in spans)
+    assert spans[0][0] == datetime(2026, 10, 17, tzinfo=timezone.utc)
+    assert spans[-1][1] == datetime(2026, 10, 25, tzinfo=timezone.utc)
+    assert counts["created"] == 1
+    assert orion.created[0]["waterVolume"]["value"] == 2.88
+    assert orion.created[0]["waterPerHectare"]["value"] == 2880
+
+
+@pytest.mark.asyncio
+async def test_bridge_truncated_day_is_unknown(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    full = _counter(0, 2000) + [(_t(TODAY, 1), 9000.0)]
+
+    def series(start, end):
+        if start.date() == DAY:
+            return None  # the reader page came back full: the day is unknown
+        return [r for r in full if start <= r[0] < end]
+
+    orion = world([_device(m1)], readings={m1: series})
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.created == [] and orion.patched == []
+    assert counts["created"] == 0
+
+
+@pytest.mark.asyncio
+async def test_bridge_skips_zero_dose(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], parcels={PARCEL: {"id": PARCEL, "area": 1.0}},
+                  readings={m1: _counter(100, 0.4)})
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.created == []
+    assert counts == {"created": 0, "updated": 0, "unchanged": 0, "skipped": 1}
+
+
+@pytest.mark.asyncio
+async def test_bridge_leaves_non_sensor_operation(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    manual = _sensor_op(4.0, 8000)
+    manual["dataSource"] = {"type": "Property", "value": "manual"}
+    orion = world([_device(m1)], ops={OP_ID: manual}, readings={m1: _counter(0, 6000)})
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.created == [] and orion.patched == []
+    assert counts == {"created": 0, "updated": 0, "unchanged": 0, "skipped": 1}
+
+
+@pytest.mark.asyncio
+async def test_bridge_create_conflict_is_unchanged(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], readings={m1: _counter(0, 5000)})
+
+    async def conflict(entity):
+        req = httpx.Request("POST", "http://orion.test/ngsi-ld/v1/entities")
+        raise httpx.HTTPStatusError("409", request=req, response=httpx.Response(409, request=req))
+
+    orion.create_entity = conflict
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert counts == {"created": 0, "updated": 0, "unchanged": 1, "skipped": 0}
+    assert orion.patched == []
