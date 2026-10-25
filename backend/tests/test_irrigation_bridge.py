@@ -338,3 +338,33 @@ async def test_bridge_create_conflict_is_unchanged(world):
     counts = await run_bridge_for_tenant("tenant-a", TODAY)
     assert counts == {"created": 0, "updated": 0, "unchanged": 1, "skipped": 0}
     assert orion.patched == []
+
+
+@pytest.mark.asyncio
+async def test_bridge_rechecks_protection_before_writing(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], ops={OP_ID: _sensor_op(5.0, 10000)}, readings={m1: _counter(0, 6000)})
+    reads = []
+    original = orion.get_entity
+
+    async def get_entity(entity_id, options=None):
+        if entity_id == OP_ID:
+            reads.append(1)
+            if len(reads) >= 2:
+                return _sensor_op(5.0, 10000, log=[{"by": "u1"}])
+        return await original(entity_id, options)
+    orion.get_entity = get_entity
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.patched == []
+    assert counts["updated"] == 0 and counts["skipped"] == 1
+
+
+@pytest.mark.asyncio
+async def test_bridge_warns_when_total_drops_to_zero(world, caplog):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], ops={OP_ID: _sensor_op(5.0, 10000)}, readings={m1: _counter(100, 0)})
+    with caplog.at_level("WARNING", logger=bridge.logger.name):
+        await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.patched == [] and orion.created == []
+    msgs = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("operation exists" in m and OP_ID in m and "tenant-a" in m and "p-1" in m for m in msgs)

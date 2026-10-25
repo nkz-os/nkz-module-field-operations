@@ -92,3 +92,31 @@ def test_correct_missing_reason_is_400():
         r, upd = _post("correct", body, _op())
         assert r.status_code == 400
         upd.assert_not_called()
+
+
+def test_dict_valued_log_is_kept_on_correct_and_cancel():
+    old = {"field": "waterVolume", "by": "sensor"}
+    for path, body in (("correct", {"waterPerHectare": 90, "reason": "x"}),
+                       ("cancel", {"cancellationReason": "x"})):
+        op = _op()
+        op["modificationLog"] = {"type": "Property", "value": old}
+        r, upd = _post(path, body, op)
+        assert r.status_code == 200
+        log = upd.call_args.args[2]["modificationLog"]["value"]
+        assert log[0] == old and len(log) == 2 and log[1]["by"] == "u1"
+
+
+def test_correct_scales_volume_with_dose():
+    op = _op()
+    op["waterVolume"] = {"type": "Property", "value": 6.0, "unitCode": "MTQ"}
+    r, upd = _post("correct", {"waterPerHectare": 60, "reason": "x"}, op)  # 120 -> 60
+    attrs = upd.call_args.args[2]
+    assert attrs["waterVolume"] == {"type": "Property", "value": 3.0, "unitCode": "MTQ"}
+    entry = attrs["modificationLog"]["value"][-1]
+    assert entry["fields"]["waterVolume"] == {"old": 6.0, "new": 3.0}
+    assert entry["fields"]["waterPerHectare"] == {"old": 120, "new": 60}
+
+
+def test_correct_without_volume_updates_dose_only():
+    r, upd = _post("correct", {"waterPerHectare": 60, "reason": "x"}, _op())
+    assert "waterVolume" not in upd.call_args.args[2]

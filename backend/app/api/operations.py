@@ -254,7 +254,13 @@ def _prop_val(prop: dict | None):
 
 def _log_with(entity: dict, entry: dict) -> dict:
     current = _prop_val(entity.get("modificationLog"))
-    log = list(current) if isinstance(current, list) else []
+    # Orion answers a one-element array as the bare object.
+    if isinstance(current, list):
+        log = list(current)
+    elif isinstance(current, dict):
+        log = [current]
+    else:
+        log = []
     log.append(entry)
     return {"type": "Property", "value": log}
 
@@ -276,14 +282,22 @@ async def api_correct_operation(operation_id: str, request: Request, body: dict)
     if not isinstance(reason, str) or not reason.strip():
         raise HTTPException(400, "reason is required")
 
-    update = {
-        "waterPerHectare": {"type": "Property", "value": dose},
-        "modificationLog": _log_with(entity, {
-            "field": "waterPerHectare", "old": _prop_val(entity.get("waterPerHectare")), "new": dose,
-            "by": _get_user_id(request), "at": datetime.now(timezone.utc).isoformat(),
-            "method": "manual_correction", "reason": reason.strip(),
-        }),
+    old_dose = _prop_val(entity.get("waterPerHectare"))
+    old_vol = _prop_val(entity.get("waterVolume"))
+    update = {"waterPerHectare": {"type": "Property", "value": dose}}
+    entry = {
+        "field": "waterPerHectare", "old": old_dose, "new": dose,
+        "by": _get_user_id(request), "at": datetime.now(timezone.utc).isoformat(),
+        "method": "manual_correction", "reason": reason.strip(),
     }
+    numeric = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0  # noqa: E731
+    if numeric(old_dose) and numeric(old_vol):
+        # Keep the volume consistent with the corrected dose (same area).
+        new_vol = round(old_vol * dose / old_dose, 3)
+        update["waterVolume"] = {"type": "Property", "value": new_vol, "unitCode": "MTQ"}
+        entry["fields"] = {"waterPerHectare": {"old": old_dose, "new": dose},
+                           "waterVolume": {"old": old_vol, "new": new_vol}}
+    update["modificationLog"] = _log_with(entity, entry)
     update_entity_attrs(tenant_id, operation_id, update)
     return {"operation_id": operation_id, "waterPerHectare": dose}
 

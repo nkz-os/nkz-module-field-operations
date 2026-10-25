@@ -651,7 +651,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                     <button
                       id="sensor-correct-btn"
                       onClick={() => setSensorMode('correct')}
-                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-border text-nkz-text-primary hover:bg-nkz-background transition-colors"
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-border text-nkz-text-primary hover:bg-nkz-surface-sunken transition-colors"
                     >
                       {t('sensorOp.correct')}
                     </button>
@@ -674,7 +674,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                             min={0}
                             value={newDose}
                             onChange={e => setNewDose(e.target.value)}
-                            className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+                            className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-surface-sunken px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
                           />
                         </label>
                       )}
@@ -685,14 +685,14 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                           type="text"
                           value={sensorReason}
                           onChange={e => setSensorReason(e.target.value)}
-                          className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+                          className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-surface-sunken px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
                         />
                       </label>
                       <button
                         id="sensor-confirm-btn"
                         onClick={handleSensorAction}
                         disabled={saving}
-                        className="w-full text-sm px-4 py-2 rounded-lg bg-nkz-accent-base hover:bg-nkz-accent-dark disabled:opacity-50 text-white font-semibold transition-colors"
+                        className="w-full text-sm px-4 py-2 rounded-lg bg-nkz-accent-base hover:bg-nkz-accent-strong disabled:opacity-50 text-white font-semibold transition-colors"
                       >
                         {saving ? t('saving') : t(sensorMode === 'correct' ? 'sensorOp.confirmCorrect' : 'sensorOp.confirmRevoke')}
                       </button>

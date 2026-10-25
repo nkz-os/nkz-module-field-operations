@@ -251,11 +251,27 @@ async def _device_readings(tenant_id: str, device_urn: str,
     return readings if read_any else None
 
 
+async def _warn_if_operation_exists(client: OrionClient, tenant_id: str, parcel_urn: str,
+                                    day: date, why: str) -> None:
+    """The day now reads as no irrigation but an operation exists: leave it, tell someone."""
+    op_id = operation_id(tenant_id, parcel_urn, day)
+    try:
+        existing = await _get_or_none(client, op_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("irrigation bridge: read failed tenant=%s parcel=%s op=%s: %s",
+                     tenant_id, parcel_urn, op_id, exc)
+        return
+    if existing is not None:
+        logger.warning("irrigation bridge: %s but operation exists, left unchanged tenant=%s parcel=%s day=%s op=%s",
+                       why, tenant_id, parcel_urn, day, op_id)
+
+
 async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
                          per_device: dict[str, dict[date, float]], days: list[date],
                          counts: dict) -> None:
     devices = sorted(per_device)
     totals: dict[date, float] = {}
+    zero_days: list[date] = []
     for day in days:
         known = [v.get(day) for v in per_device.values()]
         if all(k is None for k in known):
@@ -270,6 +286,10 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
         total = sum(known)
         if total > 0:
             totals[day] = total
+        else:
+            zero_days.append(day)
+    for day in zero_days:
+        await _warn_if_operation_exists(client, tenant_id, parcel_urn, day, "total is 0")
     if not totals:
         return
 
@@ -287,6 +307,7 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
         if per_ha <= 0:
             logger.info("irrigation bridge: dose rounds to 0 L/ha, skipped tenant=%s parcel=%s day=%s",
                         tenant_id, parcel_urn, day)
+            await _warn_if_operation_exists(client, tenant_id, parcel_urn, day, "dose rounds to 0")
             counts["skipped"] += 1
             continue
         try:
@@ -318,7 +339,14 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
                     and round(old_m3 * 1000) == round(volume_m3 * 1000) and round(old_ha) == per_ha):
                 counts["unchanged"] += 1
                 continue
-            log = list(_as_list(_plain(existing.get("modificationLog"))))
+            # Re-read right before writing: a person may have decided since the first read.
+            latest = await _get_or_none(client, op_id)
+            if latest is None or is_protected(latest):
+                counts["skipped"] += 1
+                logger.info("irrigation bridge: person's decision kept (re-read) tenant=%s parcel=%s op=%s",
+                            tenant_id, parcel_urn, op_id)
+                continue
+            log = list(_as_list(_plain(latest.get("modificationLog"))))
             log.append({"field": "waterVolume", "old": old_m3, "new": volume_m3, "by": SOURCE,
                         "at": datetime.now(timezone.utc).isoformat(), "method": "telemetry"})
             await _merge_patch(client, op_id, {
