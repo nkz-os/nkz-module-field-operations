@@ -61,6 +61,7 @@
   "form": {
     "title": "Datos de la Operación",
     "complete": "Completar operación",
+    "completedOn": "Fecha de realización",
     "readOnly": "Operación en modo solo lectura"
   },
 

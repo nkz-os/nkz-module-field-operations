@@ -61,6 +61,7 @@
   "form": {
     "title": "Operation Data",
     "complete": "Complete operation",
+    "completedOn": "Date done",
     "readOnly": "Operation is read-only"
   },
 

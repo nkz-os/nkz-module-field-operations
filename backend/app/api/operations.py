@@ -1,8 +1,9 @@
 """API routes for AgriParcelOperation management."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
+from nkz_platform_sdk.crop_timeline import local_today
 
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
 from ..services.photo_service import upload_label_photo, get_label_photo
@@ -33,6 +34,25 @@ def _get_roles(request: Request) -> list:
 
 def _get_user_id(request: Request) -> str:
     return request.headers.get("X-User-ID", "field-operations")
+
+
+def _today(parcel: dict) -> date:
+    return local_today(parcel)
+
+
+def _unprocessable(code: str, detail: str):
+    raise HTTPException(status_code=422, detail={"code": code, "detail": detail})
+
+
+def _day_of(prop) -> date | None:
+    """The calendar day of a stored DateTime property, or None when absent or unreadable."""
+    value = prop.get("value") if isinstance(prop, dict) else prop
+    if isinstance(value, dict):
+        value = value.get("@value")
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
 
 
 def _pesticide_422(detail: str):
@@ -218,10 +238,28 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     result = can_transition(current_status, "completed", actor_role)
     if not result.allowed:
         raise HTTPException(403, result.reason)
+    body = dict(body)
+    completed_on = body.pop("completedOn", None)
     error = validate_sowing_method(op_type, body)
     if error:
         raise HTTPException(400, error)
     body = _composition_or_422(op_type, body, stored=entity)
+
+    link = entity.get("hasAgriParcel") or entity.get("refAgriParcel") or {}
+    parcel_ref = link.get("object", "") if isinstance(link, dict) else ""
+    ended_at = started_at = None
+    if completed_on not in (None, ""):
+        try:
+            day = date.fromisoformat(str(completed_on))
+        except ValueError:
+            _unprocessable("invalid_date", "completedOn must be YYYY-MM-DD")
+        parcel = get_entity(tenant_id, parcel_ref) if parcel_ref else None
+        if day > _today(parcel or {}):
+            _unprocessable("future_date", "completedOn cannot be in the future")
+        ended_at = f"{day.isoformat()}T12:00:00Z"
+        started_day = _day_of(entity.get("startedAt"))
+        if started_day is not None and started_day > day:
+            started_at = ended_at
 
     missing = validate_completion_fields(op_type, entity)
     for field in list(missing):
@@ -230,8 +268,6 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     if missing:
         raise HTTPException(400, f"Cannot complete: missing required fields: {missing}")
 
-    link = entity.get("hasAgriParcel") or entity.get("refAgriParcel") or {}
-    parcel_ref = link.get("object", "") if isinstance(link, dict) else ""
     merged = {
         "productName": _prop_val(entity.get("productName")),
         "productRate": _prop_val(entity.get("productRate")),
@@ -244,7 +280,9 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     except ValueError as exc:
         _pesticide_422(str(exc))
 
-    return complete_operation(tenant_id, operation_id, extra_attrs=body)
+    return complete_operation(
+        tenant_id, operation_id, ended_at=ended_at, started_at=started_at, extra_attrs=body,
+    )
 
 
 def _prop_val(prop: dict | None):

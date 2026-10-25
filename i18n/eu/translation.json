@@ -55,6 +55,7 @@
   "form": {
     "title": "Eragiketaren Datuaks",
     "complete": "Complete operation",
+    "completedOn": "Egite-data",
     "readOnly": "Operation is read-only"
   },
   "fields": {

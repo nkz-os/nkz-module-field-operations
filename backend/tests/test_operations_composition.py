@@ -155,3 +155,60 @@ def test_complete_reads_the_parcel_link_under_hasagriparcel(monkeypatch):
     resp = client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS, json={})
     assert resp.status_code == 200, resp.text
     assert calls["validation"][1] == PARCEL
+
+
+def _post_complete(body):
+    return client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS, json=body)
+
+
+def test_completed_on_sets_ended_at_to_noon(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({"completedOn": "2026-10-20"})
+    assert resp.status_code == 200, resp.text
+    kwargs = calls["complete"][1]
+    assert kwargs["ended_at"] == "2026-10-20T12:00:00Z"
+    assert kwargs.get("started_at") is None
+    assert "completedOn" not in kwargs["extra_attrs"]
+
+
+def test_absent_completed_on_keeps_now(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({})
+    assert resp.status_code == 200, resp.text
+    assert calls["complete"][1].get("ended_at") is None
+
+
+def test_completed_on_today_is_accepted(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    assert _post_complete({"completedOn": "2026-10-25"}).status_code == 200
+    assert calls["complete"][1]["ended_at"] == "2026-10-25T12:00:00Z"
+
+
+def test_invalid_completed_on_is_422(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({"completedOn": "20/10/2026"})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "invalid_date"
+    assert "complete" not in calls
+
+
+def test_future_completed_on_is_422(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({"completedOn": "2026-10-26"})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "future_date"
+    assert "complete" not in calls
+
+
+def test_started_at_after_completed_on_is_moved(monkeypatch):
+    started = {"@type": "DateTime", "@value": "2026-10-24T08:00:00+00:00"}
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough", startedAt=started))
+    assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
+    assert calls["complete"][1]["started_at"] == "2026-10-20T12:00:00Z"
+
+
+def test_started_at_before_completed_on_is_left_alone(monkeypatch):
+    started = {"@type": "DateTime", "@value": "2026-10-18T08:00:00+00:00"}
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough", startedAt=started))
+    assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
+    assert calls["complete"][1].get("started_at") is None
