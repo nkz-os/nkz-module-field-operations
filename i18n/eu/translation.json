@@ -137,6 +137,17 @@
     "values": "current values",
     "confirm": "Estrapolazioa berretsi"
   },
+  "sensorOp": {
+    "correct": "Dosia zuzendu",
+    "revoke": "Baliogabetu",
+    "newDose": "Dosi berria (L/ha)",
+    "reason": "Arrazoia",
+    "confirmCorrect": "Zuzenketa gorde",
+    "confirmRevoke": "Baliogabetzea berretsi",
+    "reasonRequired": "Arrazoia beharrezkoa da",
+    "doseInvalid": "Dosiak 0 baino handiagoa izan behar du"
+  },
+
   "siex": {
     "register": "SIEXen Erregistratu"
   },

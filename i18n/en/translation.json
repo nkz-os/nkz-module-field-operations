@@ -146,6 +146,17 @@
     "confirm": "Confirm extrapolation"
   },
 
+  "sensorOp": {
+    "correct": "Correct dose",
+    "revoke": "Revoke",
+    "newDose": "New dose (L/ha)",
+    "reason": "Reason",
+    "confirmCorrect": "Save correction",
+    "confirmRevoke": "Confirm revoke",
+    "reasonRequired": "A reason is required",
+    "doseInvalid": "The dose must be greater than 0"
+  },
+
   "siex": {
     "register": "Register in SIEX"
   },

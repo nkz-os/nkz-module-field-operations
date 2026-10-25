@@ -137,6 +137,17 @@
     "values": "current values",
     "confirm": "Confirmar Extrapolació"
   },
+  "sensorOp": {
+    "correct": "Corregir dosi",
+    "revoke": "Revocar",
+    "newDose": "Nova dosi (L/ha)",
+    "reason": "Motiu",
+    "confirmCorrect": "Desar correcció",
+    "confirmRevoke": "Confirmar revocació",
+    "reasonRequired": "El motiu és obligatori",
+    "doseInvalid": "La dosi ha de ser major que 0"
+  },
+
   "siex": {
     "register": "Registrar al SIEX"
   },

@@ -137,6 +137,17 @@
     "values": "current values",
     "confirm": "Confirmer l'extrapolation"
   },
+  "sensorOp": {
+    "correct": "Corriger la dose",
+    "revoke": "Révoquer",
+    "newDose": "Nouvelle dose (L/ha)",
+    "reason": "Motif",
+    "confirmCorrect": "Enregistrer la correction",
+    "confirmRevoke": "Confirmer la révocation",
+    "reasonRequired": "Le motif est obligatoire",
+    "doseInvalid": "La dose doit être supérieure à 0"
+  },
+
   "siex": {
     "register": "Enregistrer dans SIEX"
   },
