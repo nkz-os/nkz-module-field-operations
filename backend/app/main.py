@@ -15,6 +15,7 @@ from .api.internal import router as internal_router
 from .api.plan_summary import router as plan_summary_router
 from .api.record import router as record_router
 from .services.timeout_worker import check_stale_operations
+from .services.irrigation_bridge import irrigation_bridge_loop
 from .services import crop_cycles_runtime
 from nkz_platform_sdk.lifecycle import lifecycle_hint_router
 
@@ -30,9 +31,11 @@ async def lifespan(application: FastAPI):
     ensure_signature_enforced()
     task = asyncio.create_task(check_stale_operations())
     logger.info("Stale operation check worker started")
+    bridge_task = asyncio.create_task(irrigation_bridge_loop())
     crop_tasks = crop_cycles_runtime.start()
     yield
     task.cancel()
+    bridge_task.cancel()
     for t in crop_tasks:
         t.cancel()
     logger.info("NKZ Field Operations module shutting down")
