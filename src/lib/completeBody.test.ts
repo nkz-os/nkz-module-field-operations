@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCompleteBody, localDay } from './completeBody';
+import { buildCompleteBody, dateErrorKey, localDay } from './completeBody';
 
 describe('localDay', () => {
   it('formats the local calendar day, not the UTC one', () => {
@@ -14,5 +14,14 @@ describe('buildCompleteBody', () => {
   });
   it('omits completedOn when no day is chosen', () => {
     expect(buildCompleteBody({ a: 1 }, '')).toEqual({ a: 1 });
+  });
+});
+
+describe('dateErrorKey', () => {
+  it('maps the date codes to their strings and ignores the rest', () => {
+    expect(dateErrorKey('invalid_date')).toBe('form.invalidDate');
+    expect(dateErrorKey('future_date')).toBe('form.futureDate');
+    expect(dateErrorKey('pesticide_not_authorized')).toBeNull();
+    expect(dateErrorKey(undefined)).toBeNull();
   });
 });

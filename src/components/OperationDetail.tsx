@@ -9,7 +9,7 @@ import { usePesticideValidation } from '../hooks/usePesticideValidation';
 import {
   NITROGEN_FORMS, formatGrade, nitrogenFormOf, prepareFertilizationBody,
 } from '../lib/fertilizerComposition';
-import { buildCompleteBody, localDay } from '../lib/completeBody';
+import { buildCompleteBody, dateErrorKey, localDay } from '../lib/completeBody';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -383,6 +383,8 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         const detail = err.detail;
+        const dateKey = typeof detail === 'object' ? dateErrorKey(detail?.code) : null;
+        if (dateKey) throw new Error(t(dateKey));
         if (typeof detail === 'object' && detail?.code === 'pesticide_not_authorized') {
           throw new Error(
             detail.detail ?? t('spraying.pesticideRejected', { defaultValue: 'Not authorized for this crop' }),

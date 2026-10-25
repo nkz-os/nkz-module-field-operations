@@ -12,3 +12,13 @@ export function buildCompleteBody(
 ): Record<string, unknown> {
   return completedOn ? { ...payload, completedOn } : { ...payload };
 }
+
+const DATE_ERRORS: Record<string, string> = {
+  invalid_date: 'form.invalidDate',
+  future_date: 'form.futureDate',
+};
+
+/** The i18n key for an API error code about the completion date, or null for any other. */
+export function dateErrorKey(code: unknown): string | null {
+  return typeof code === 'string' ? (DATE_ERRORS[code] ?? null) : null;
+}

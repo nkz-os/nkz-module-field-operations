@@ -1,4 +1,5 @@
 """API routes for AgriParcelOperation management."""
+import logging
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
@@ -20,6 +21,7 @@ from ..services.pesticide_validation import (
 )
 from ..fertilizer_composition import CompositionError, normalize_composition
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/field-operations", tags=["field-operations"])
 
 
@@ -254,6 +256,11 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
         except ValueError:
             _unprocessable("invalid_date", "completedOn must be YYYY-MM-DD")
         parcel = get_entity(tenant_id, parcel_ref) if parcel_ref else None
+        if not parcel:
+            logger.warning(
+                "complete: parcel not resolved, using UTC today tenant=%s operation=%s parcel=%s",
+                tenant_id, operation_id, parcel_ref or "-",
+            )
         if day > _today(parcel or {}):
             _unprocessable("future_date", "completedOn cannot be in the future")
         ended_at = f"{day.isoformat()}T12:00:00Z"

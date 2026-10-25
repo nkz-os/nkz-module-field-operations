@@ -62,6 +62,8 @@
     "title": "Operation Data",
     "complete": "Complete operation",
     "completedOn": "Date done",
+    "invalidDate": "Invalid date",
+    "futureDate": "The date cannot be in the future",
     "readOnly": "Operation is read-only"
   },
 

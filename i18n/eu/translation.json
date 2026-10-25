@@ -56,6 +56,8 @@
     "title": "Eragiketaren Datuaks",
     "complete": "Complete operation",
     "completedOn": "Egite-data",
+    "invalidDate": "Data baliogabea",
+    "futureDate": "Data ezin da etorkizunekoa izan",
     "readOnly": "Operation is read-only"
   },
   "fields": {

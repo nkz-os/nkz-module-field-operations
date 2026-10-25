@@ -62,6 +62,8 @@
     "title": "Datos de la Operación",
     "complete": "Completar operación",
     "completedOn": "Fecha de realización",
+    "invalidDate": "Fecha no válida",
+    "futureDate": "La fecha no puede ser futura",
     "readOnly": "Operación en modo solo lectura"
   },
 

@@ -212,3 +212,13 @@ def test_started_at_before_completed_on_is_left_alone(monkeypatch):
     calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough", startedAt=started))
     assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
     assert calls["complete"][1].get("started_at") is None
+
+
+def test_unresolved_parcel_logs_a_warning(monkeypatch, caplog):
+    entity = _entity("tillage", tillageType="plough")
+    _complete_env(monkeypatch, entity)
+    monkeypatch.setattr(_ops_route, "get_entity", lambda tenant, eid: entity if eid == OP_ID else None)
+    with caplog.at_level("WARNING"):
+        assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
+    assert any(OP_ID in r.getMessage() and PARCEL in r.getMessage() and "tenant-1" in r.getMessage()
+               for r in caplog.records)
