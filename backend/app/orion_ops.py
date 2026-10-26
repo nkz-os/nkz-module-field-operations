@@ -143,12 +143,15 @@ def complete_operation(
     operation_id: str,
     ended_at: Optional[str] = None,
     extra_attrs: Optional[dict] = None,
+    started_at: Optional[str] = None,
 ) -> dict:
     now = ended_at or datetime.now(timezone.utc).isoformat()
     update = {
         "status": {"type": "Property", "value": "completed"},
         "endedAt": {"type": "Property", "value": {"@type": "DateTime", "@value": now}},
     }
+    if started_at:
+        update["startedAt"] = {"type": "Property", "value": {"@type": "DateTime", "@value": started_at}}
     if extra_attrs:
         for key, value in extra_attrs.items():
             if isinstance(value, dict) and "unitCode" in value:

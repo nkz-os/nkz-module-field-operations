@@ -55,6 +55,9 @@
   "form": {
     "title": "Dades de l'Operació",
     "complete": "Complete operation",
+    "completedOn": "Data de realització",
+    "invalidDate": "Data no vàlida",
+    "futureDate": "La data no pot ser futura",
     "readOnly": "Operation is read-only"
   },
   "fields": {
