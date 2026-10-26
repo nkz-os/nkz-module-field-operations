@@ -74,10 +74,15 @@ def _composition_or_422(operation_type: str, body: dict, stored: dict | None = N
         )
 
 
+# Platform (Keycloak realm) roles, plus the module's legacy names.
+_TENANT_ADMIN_ROLES = {"TenantAdmin", "PlatformAdmin", "tenant_admin"}
+_FIELD_MANAGER_ROLES = {"TechnicalConsultant", "field_manager"}
+
+
 def _resolve_actor(roles: list) -> str:
-    if "tenant_admin" in roles:
+    if _TENANT_ADMIN_ROLES.intersection(roles):
         return "tenant_admin"
-    if "field_manager" in roles:
+    if _FIELD_MANAGER_ROLES.intersection(roles):
         return "field_manager"
     return "user"
 

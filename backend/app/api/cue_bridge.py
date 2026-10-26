@@ -67,8 +67,8 @@ async def get_product_detail(
 async def register_in_siex(operation_id: str, request: Request):
     """Manual trigger to register a completed operation in CUE/SIEX. Phase 1 only."""
     tenant_id = _get_tenant(request)
-    roles = _get_roles(request)
-    if "field_manager" not in roles and "tenant_admin" not in roles:
+    from .operations import _resolve_actor
+    if _resolve_actor(_get_roles(request)) not in ("field_manager", "tenant_admin"):
         raise HTTPException(403, "Only field_manager or tenant_admin can register in SIEX")
 
     from ..orion_ops import get_entity, update_entity_attrs
