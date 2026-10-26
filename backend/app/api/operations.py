@@ -9,7 +9,7 @@ from nkz_platform_sdk.crop_timeline import local_today
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
 from ..services.photo_service import upload_label_photo, get_label_photo
 from ..services.work_order_service import create_external_work_order
-from ..state_machine import can_transition, validate_completion_fields, validate_sowing_method
+from ..state_machine import SENSOR_REVOKE_ACTORS, can_transition, validate_completion_fields, validate_sowing_method
 from ..orion_ops import (
     create_operation, get_entity, update_entity_attrs,
     start_operation, complete_operation,
@@ -303,13 +303,66 @@ def _prop_val(prop: dict | None):
     return prop.get("value")
 
 
+def _log_with(entity: dict, entry: dict) -> dict:
+    current = _prop_val(entity.get("modificationLog"))
+    # Orion answers a one-element array as the bare object.
+    if isinstance(current, list):
+        log = list(current)
+    elif isinstance(current, dict):
+        log = [current]
+    else:
+        log = []
+    log.append(entry)
+    return {"type": "Property", "value": log}
+
+
+@router.post("/operations/{operation_id}/correct")
+async def api_correct_operation(operation_id: str, request: Request, body: dict):
+    """Correct the dose of a completed irrigation operation created by the water-meter bridge."""
+    tenant_id = _get_tenant(request)
+    if _resolve_actor(_get_roles(request)) not in SENSOR_REVOKE_ACTORS:
+        raise HTTPException(403, "Only a technical consultant or a tenant admin can correct sensor operations")
+    entity = _get_or_404(tenant_id, operation_id)
+    if (_prop_val(entity.get("status")) != "completed"
+            or _prop_val(entity.get("dataSource")) != "sensor"
+            or _prop_val(entity.get("operationType")) != "irrigation"):
+        raise HTTPException(403, "Only completed sensor irrigation operations can be corrected")
+
+    dose = body.get("waterPerHectare")
+    if isinstance(dose, bool) or not isinstance(dose, (int, float)) or not dose > 0:
+        raise HTTPException(422, "waterPerHectare must be a number greater than 0")
+    reason = body.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise HTTPException(400, "reason is required")
+
+    old_dose = _prop_val(entity.get("waterPerHectare"))
+    old_vol = _prop_val(entity.get("waterVolume"))
+    update = {"waterPerHectare": {"type": "Property", "value": dose}}
+    entry = {
+        "field": "waterPerHectare", "old": old_dose, "new": dose,
+        "by": _get_user_id(request), "at": datetime.now(timezone.utc).isoformat(),
+        "method": "manual_correction", "reason": reason.strip(),
+    }
+    numeric = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0  # noqa: E731
+    if numeric(old_dose) and numeric(old_vol):
+        # Keep the volume consistent with the corrected dose (same area).
+        new_vol = round(old_vol * dose / old_dose, 3)
+        update["waterVolume"] = {"type": "Property", "value": new_vol, "unitCode": "MTQ"}
+        entry["fields"] = {"waterPerHectare": {"old": old_dose, "new": dose},
+                           "waterVolume": {"old": old_vol, "new": new_vol}}
+    update["modificationLog"] = _log_with(entity, entry)
+    update_entity_attrs(tenant_id, operation_id, update)
+    return {"operation_id": operation_id, "waterPerHectare": dose}
+
+
 @router.post("/operations/{operation_id}/cancel")
 async def api_cancel_operation(operation_id: str, request: Request, body: dict):
     tenant_id = _get_tenant(request)
     entity = _get_or_404(tenant_id, operation_id)
     current_status = entity.get("status", {}).get("value", "")
     actor_role = _resolve_actor(_get_roles(request))
-    result = can_transition(current_status, "cancelled", actor_role)
+    data_source = _prop_val(entity.get("dataSource"))
+    result = can_transition(current_status, "cancelled", actor_role, data_source=data_source)
     if not result.allowed:
         raise HTTPException(403, result.reason)
 
@@ -321,6 +374,13 @@ async def api_cancel_operation(operation_id: str, request: Request, body: dict):
         "status": {"type": "Property", "value": "cancelled"},
         "cancellationReason": {"type": "Property", "value": reason},
     }
+    if current_status == "completed":
+        # A person's decision: the entry's author is what keeps the bridge away from it.
+        update["modificationLog"] = _log_with(entity, {
+            "field": "status", "old": current_status, "new": "cancelled",
+            "by": _get_user_id(request), "at": datetime.now(timezone.utc).isoformat(),
+            "method": "manual_cancellation", "reason": reason,
+        })
     update_entity_attrs(tenant_id, operation_id, update)
     return {"status": "cancelled", "operation_id": operation_id}
 

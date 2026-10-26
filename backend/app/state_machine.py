@@ -23,6 +23,10 @@ ACTORS_FOR_TRANSITION = {
     ("needs_review", "cancelled"):  ["field_manager", "tenant_admin"],
 }
 
+# A completed operation can be revoked only when the water-meter bridge created it.
+SENSOR_REVOKE_ACTORS = ["field_manager", "tenant_admin"]  # technical consultant or tenant admin (owner)
+
+
 
 @dataclass
 class TransitionResult:
@@ -31,8 +35,19 @@ class TransitionResult:
     reason: str = ""
 
 
-def can_transition(current_status: str, target_status: str, actor_role: str) -> TransitionResult:
-    """Check if a status transition is allowed."""
+def can_transition(
+    current_status: str, target_status: str, actor_role: str, data_source: Optional[str] = None,
+) -> TransitionResult:
+    """Check if a status transition is allowed.
+
+    ``completed -> cancelled`` is allowed only for ``data_source == "sensor"``.
+    """
+    if current_status == "completed" and target_status == "cancelled" and data_source == "sensor":
+        if actor_role in SENSOR_REVOKE_ACTORS:
+            return TransitionResult(True, new_status=target_status)
+        return TransitionResult(
+            False, reason=f"Role '{actor_role}' not authorized for '{current_status} -> {target_status}'"
+        )
     if current_status not in ALLOWED_TRANSITIONS:
         return TransitionResult(False, reason=f"Unknown status: {current_status}")
 

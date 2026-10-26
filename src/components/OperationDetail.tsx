@@ -1,6 +1,6 @@
 import { API_ORIGIN } from '../lib/apiOrigin';
 import React, { useState } from 'react';
-import { useTranslation } from '@nekazari/sdk';
+import { useAuth, useTranslation } from '@nekazari/sdk';
 import PhotoUpload from './PhotoUpload';
 import PlanSummaryPanel from './PlanSummaryPanel';
 import { campaignOf, operationDay } from '../lib/planSummary';
@@ -10,6 +10,7 @@ import {
   NITROGEN_FORMS, formatGrade, nitrogenFormOf, prepareFertilizationBody,
 } from '../lib/fertilizerComposition';
 import { buildCompleteBody, dateErrorKey, localDay } from '../lib/completeBody';
+import { canCorrectSensorOperation, SENSOR_OPERATION_MANAGER_ROLES } from '../lib/sensorOperation';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -339,6 +340,9 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const [actionError, setActionError]           = useState<string | null>(null);
   const today                                   = localDay();
   const [completedOn, setCompletedOn]           = useState<string>(today);
+  const [sensorMode, setSensorMode]             = useState<'correct' | 'revoke' | null>(null);
+  const [newDose, setNewDose]                   = useState('');
+  const [sensorReason, setSensorReason]         = useState('');
 
   const status    = operation.status?.value ?? '';
   const opType    = operation.operationType?.value ?? '';
@@ -355,6 +359,9 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const canExtrapolate = areaCovered != null && status === 'incomplete';
   const canSiex        = ['spraying', 'fertilization'].includes(opType) && status === 'completed';
   const canEdit        = status === 'incomplete' || status === 'needs_review';
+  const auth = useAuth();
+  const canCorrectSensor = canCorrectSensorOperation(status, dataSource, opType)
+    && auth.hasAnyRole(SENSOR_OPERATION_MANAGER_ROLES);
   const grade      = opType === 'fertilization' ? formatGrade(operation) : null;
   const nForm      = opType === 'fertilization' ? nitrogenFormOf(operation) : null;
 
@@ -417,6 +424,47 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
         }
       );
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      onSaved();
+      onClose();
+    } catch (e) {
+      setActionError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSensorAction() {
+    if (!sensorMode) return;
+    const reason = sensorReason.trim();
+    const dose = Number(newDose);
+    if (!reason) {
+      setActionError(t('sensorOp.reasonRequired'));
+      return;
+    }
+    if (sensorMode === 'correct' && !(dose > 0)) {
+      setActionError(t('sensorOp.doseInvalid'));
+      return;
+    }
+    setSaving(true);
+    setActionError(null);
+    try {
+      const resp = await fetch(
+        `${API_BASE}/operations/${encodeURIComponent(operation.id)}/${sensorMode === 'correct' ? 'correct' : 'cancel'}`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            sensorMode === 'correct'
+              ? { waterPerHectare: dose, reason }
+              : { cancellationReason: reason },
+          ),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(typeof err.detail === 'string' ? err.detail : `HTTP ${resp.status}`);
+      }
       onSaved();
       onClose();
     } catch (e) {
@@ -601,6 +649,63 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
               {operation.hasAgriParcel?.object && (
                 <PlanSummaryPanel parcelId={operation.hasAgriParcel.object}
                                   campaign={campaignOf(operationDay(operation))} />
+              )}
+
+              {/* Sensor-origin irrigation: correct the dose or revoke */}
+              {canCorrectSensor && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      id="sensor-correct-btn"
+                      onClick={() => setSensorMode('correct')}
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-border text-nkz-text-primary hover:bg-nkz-surface-sunken transition-colors"
+                    >
+                      {t('sensorOp.correct')}
+                    </button>
+                    <button
+                      id="sensor-revoke-btn"
+                      onClick={() => setSensorMode('revoke')}
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-danger text-nkz-danger-strong hover:bg-nkz-danger-soft transition-colors"
+                    >
+                      {t('sensorOp.revoke')}
+                    </button>
+                  </div>
+                  {sensorMode && (
+                    <div className="space-y-2">
+                      {sensorMode === 'correct' && (
+                        <label className="block">
+                          <span className="text-xs font-medium text-nkz-text-muted">{t('sensorOp.newDose')}</span>
+                          <input
+                            id="sensor-dose-input"
+                            type="number"
+                            min={0}
+                            value={newDose}
+                            onChange={e => setNewDose(e.target.value)}
+                            className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-surface-sunken px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+                          />
+                        </label>
+                      )}
+                      <label className="block">
+                        <span className="text-xs font-medium text-nkz-text-muted">{t('sensorOp.reason')}</span>
+                        <input
+                          id="sensor-reason-input"
+                          type="text"
+                          value={sensorReason}
+                          onChange={e => setSensorReason(e.target.value)}
+                          className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-surface-sunken px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+                        />
+                      </label>
+                      <button
+                        id="sensor-confirm-btn"
+                        onClick={handleSensorAction}
+                        disabled={saving}
+                        className="w-full text-sm px-4 py-2 rounded-lg bg-nkz-accent-base hover:bg-nkz-accent-strong disabled:opacity-50 text-white font-semibold transition-colors"
+                      >
+                        {saving ? t('saving') : t(sensorMode === 'correct' ? 'sensorOp.confirmCorrect' : 'sensorOp.confirmRevoke')}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* SIEX button */}
