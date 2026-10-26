@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from nkz_platform_sdk.crop_timeline import local_today
 
+from ..services import irrigation_bridge
 from ..config import VALID_OPERATION_TYPES, VALID_STATUSES
 from ..services.photo_service import upload_label_photo, get_label_photo
 from ..services.work_order_service import create_external_work_order
@@ -75,6 +76,7 @@ def _composition_or_422(operation_type: str, body: dict, stored: dict | None = N
 
 
 # Platform (Keycloak realm) roles, plus the module's legacy names.
+SENSOR_OVERLAP_CHOICES = ("keep_both", "replace_sensor")
 _TENANT_ADMIN_ROLES = {"TenantAdmin", "PlatformAdmin", "tenant_admin"}
 _FIELD_MANAGER_ROLES = {"TechnicalConsultant", "field_manager"}
 
@@ -247,6 +249,9 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
         raise HTTPException(403, result.reason)
     body = dict(body)
     completed_on = body.pop("completedOn", None)
+    overlap = body.pop("sensorOverlap", None)
+    if overlap is not None and overlap not in SENSOR_OVERLAP_CHOICES:
+        _unprocessable("invalid_sensor_overlap", "sensorOverlap must be keep_both or replace_sensor")
     error = validate_sowing_method(op_type, body)
     if error:
         raise HTTPException(400, error)
@@ -255,17 +260,21 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     link = entity.get("hasAgriParcel") or entity.get("refAgriParcel") or {}
     parcel_ref = link.get("object", "") if isinstance(link, dict) else ""
     ended_at = started_at = None
-    if completed_on not in (None, ""):
-        try:
-            day = date.fromisoformat(str(completed_on))
-        except ValueError:
-            _unprocessable("invalid_date", "completedOn must be YYYY-MM-DD")
+    check_meter = op_type == "irrigation" and _prop_val(entity.get("dataSource")) != "sensor" and bool(parcel_ref)
+    parcel = None
+    if completed_on not in (None, "") or check_meter:
         parcel = get_entity(tenant_id, parcel_ref) if parcel_ref else None
         if not parcel:
             logger.warning(
                 "complete: parcel not resolved, using UTC today tenant=%s operation=%s parcel=%s",
                 tenant_id, operation_id, parcel_ref or "-",
             )
+    day = None
+    if completed_on not in (None, ""):
+        try:
+            day = date.fromisoformat(str(completed_on))
+        except ValueError:
+            _unprocessable("invalid_date", "completedOn must be YYYY-MM-DD")
         if day > _today(parcel or {}):
             _unprocessable("future_date", "completedOn cannot be in the future")
         ended_at = f"{day.isoformat()}T12:00:00Z"
@@ -292,15 +301,64 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
     except ValueError as exc:
         _pesticide_422(str(exc))
 
+    raw_attrs = None
+    if check_meter:
+        sensor_op = _sensor_op_of_day(tenant_id, parcel_ref, day or _today(parcel or {}))
+        if sensor_op is not None:
+            sensor_id, sensor_entity, sensor_day = sensor_op
+            actor = _resolve_actor(_get_roles(request))
+            if overlap is None:
+                raise HTTPException(409, {
+                    "code": "sensor_irrigation_exists",
+                    "detail": "A water meter already recorded irrigation on this day",
+                    "sensorOperationId": sensor_id,
+                    "sensorWaterPerHectare": _prop_val(sensor_entity.get("waterPerHectare")),
+                    "day": sensor_day.isoformat(),
+                })
+            if overlap == "replace_sensor":
+                if actor not in SENSOR_REVOKE_ACTORS:
+                    raise HTTPException(403, "Only a technical consultant or a tenant admin can replace sensor operations")
+                update_entity_attrs(tenant_id, sensor_id, _sensor_cancel_update(
+                    sensor_entity, _get_user_id(request), "replaced by a manual record",
+                ))
+            else:
+                raw_attrs = {
+                    "possibleDuplicateOf": {"type": "Relationship", "object": sensor_id},
+                    "duplicateReview": {"type": "Property", "value": "keep_both"},
+                }
+
     return complete_operation(
         tenant_id, operation_id, ended_at=ended_at, started_at=started_at, extra_attrs=body,
+        **({"raw_attrs": raw_attrs} if raw_attrs else {}),
     )
+
+
+def _sensor_op_of_day(tenant_id: str, parcel_ref: str, day: date):
+    """(id, entity, day) of the completed water-meter operation of that parcel and day, or None."""
+    sensor_id = irrigation_bridge.operation_id(tenant_id, parcel_ref, day)
+    entity = get_entity(tenant_id, sensor_id)
+    if entity and _prop_val(entity.get("status")) == "completed":
+        return sensor_id, entity, day
+    return None
 
 
 def _prop_val(prop: dict | None):
     if not isinstance(prop, dict):
         return None
     return prop.get("value")
+
+
+def _sensor_cancel_update(entity: dict, user_id: str, reason: str) -> dict:
+    """Attributes that revoke a completed sensor operation; the entry's author keeps the bridge away."""
+    return {
+        "status": {"type": "Property", "value": "cancelled"},
+        "cancellationReason": {"type": "Property", "value": reason},
+        "modificationLog": _log_with(entity, {
+            "field": "status", "old": "completed", "new": "cancelled",
+            "by": user_id, "at": datetime.now(timezone.utc).isoformat(),
+            "method": "manual_cancellation", "reason": reason,
+        }),
+    }
 
 
 def _log_with(entity: dict, entry: dict) -> dict:
@@ -355,6 +413,27 @@ async def api_correct_operation(operation_id: str, request: Request, body: dict)
     return {"operation_id": operation_id, "waterPerHectare": dose}
 
 
+@router.post("/operations/{operation_id}/duplicate-review")
+async def api_duplicate_review(operation_id: str, request: Request, body: dict):
+    """Keep both a flagged water-meter irrigation and the manual one(s) it may duplicate.
+
+    Writes only ``duplicateReview``: no modificationLog entry, so the bridge keeps updating the
+    operation from late telemetry. 403: not a completed sensor irrigation; 400: not flagged;
+    422: any decision but keep_both. Any authenticated user may decide."""
+    tenant_id = _get_tenant(request)
+    entity = _get_or_404(tenant_id, operation_id)
+    if (_prop_val(entity.get("status")) != "completed"
+            or _prop_val(entity.get("dataSource")) != "sensor"
+            or _prop_val(entity.get("operationType")) != "irrigation"):
+        raise HTTPException(403, "Only completed sensor irrigation operations can be reviewed")
+    if not entity.get("possibleDuplicateOf"):
+        raise HTTPException(400, "Operation is not flagged as a possible duplicate")
+    if body.get("decision") != "keep_both":
+        _unprocessable("invalid_decision", "decision must be keep_both")
+    update_entity_attrs(tenant_id, operation_id, {"duplicateReview": {"type": "Property", "value": "keep_both"}})
+    return {"operation_id": operation_id, "duplicateReview": "keep_both"}
+
+
 @router.post("/operations/{operation_id}/cancel")
 async def api_cancel_operation(operation_id: str, request: Request, body: dict):
     tenant_id = _get_tenant(request)
@@ -376,11 +455,7 @@ async def api_cancel_operation(operation_id: str, request: Request, body: dict):
     }
     if current_status == "completed":
         # A person's decision: the entry's author is what keeps the bridge away from it.
-        update["modificationLog"] = _log_with(entity, {
-            "field": "status", "old": current_status, "new": "cancelled",
-            "by": _get_user_id(request), "at": datetime.now(timezone.utc).isoformat(),
-            "method": "manual_cancellation", "reason": reason,
-        })
+        update = _sensor_cancel_update(entity, _get_user_id(request), reason)
     update_entity_attrs(tenant_id, operation_id, update)
     return {"status": "cancelled", "operation_id": operation_id}
 
