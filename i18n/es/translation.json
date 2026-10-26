@@ -157,7 +157,12 @@
     "confirmCorrect": "Guardar corrección",
     "confirmRevoke": "Confirmar revocación",
     "reasonRequired": "El motivo es obligatorio",
-    "doseInvalid": "La dosis debe ser mayor que 0"
+    "doseInvalid": "La dosis debe ser mayor que 0",
+    "duplicateOnComplete": "Un contador de agua ya registró riego este día ({{dose}} L/ha).",
+    "duplicateOnCompleteNoDose": "Un contador de agua ya registró riego este día.",
+    "keepBoth": "Mantener ambos",
+    "replaceSensor": "Reemplazar el registro del contador",
+    "possibleDuplicate": "Posible duplicado de un riego registrado manualmente"
   },
 
   "siex": {

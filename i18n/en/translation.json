@@ -157,7 +157,12 @@
     "confirmCorrect": "Save correction",
     "confirmRevoke": "Confirm revoke",
     "reasonRequired": "A reason is required",
-    "doseInvalid": "The dose must be greater than 0"
+    "doseInvalid": "The dose must be greater than 0",
+    "duplicateOnComplete": "A water meter already recorded irrigation on this day ({{dose}} L/ha).",
+    "duplicateOnCompleteNoDose": "A water meter already recorded irrigation on this day.",
+    "keepBoth": "Keep both",
+    "replaceSensor": "Replace the meter record",
+    "possibleDuplicate": "Possible duplicate of a manually recorded irrigation"
   },
 
   "siex": {

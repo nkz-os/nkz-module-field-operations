@@ -148,7 +148,12 @@
     "confirmCorrect": "Zuzenketa gorde",
     "confirmRevoke": "Baliogabetzea berretsi",
     "reasonRequired": "Arrazoia beharrezkoa da",
-    "doseInvalid": "Dosiak 0 baino handiagoa izan behar du"
+    "doseInvalid": "Dosiak 0 baino handiagoa izan behar du",
+    "duplicateOnComplete": "Ur-kontagailu batek jada erregistratu du ureztatzea egun honetan ({{dose}} L/ha).",
+    "duplicateOnCompleteNoDose": "Ur-kontagailu batek jada erregistratu du ureztatzea egun honetan.",
+    "keepBoth": "Biak mantendu",
+    "replaceSensor": "Kontagailuaren erregistroa ordezkatu",
+    "possibleDuplicate": "Eskuz erregistratutako ureztatze baten bikoizketa posiblea"
   },
 
   "siex": {
