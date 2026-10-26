@@ -336,8 +336,15 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
         **({"raw_attrs": raw_attrs} if raw_attrs else {}),
     )
     if meter_review is not None:
-        # No modificationLog entry: the bridge keeps updating the meter record.
-        update_entity_attrs(tenant_id, sensor_id, {"duplicateReview": meter_review})
+        # No modificationLog entry: the bridge keeps updating the meter record. The manual
+        # operation is already completed, so a failure here only leaves the meter banner.
+        try:
+            update_entity_attrs(tenant_id, sensor_id, {"duplicateReview": meter_review})
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "complete: meter review not written tenant=%s operation=%s meter=%s: %s",
+                tenant_id, operation_id, sensor_id, exc,
+            )
     return result
 
 
