@@ -277,6 +277,9 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
             _unprocessable("invalid_date", "completedOn must be YYYY-MM-DD")
         if day > _today(parcel or {}):
             _unprocessable("future_date", "completedOn cannot be in the future")
+    elif check_meter:
+        day = _today(parcel or {})  # both records must agree on the day that was checked
+    if day is not None:
         ended_at = f"{day.isoformat()}T12:00:00Z"
         started_day = _day_of(entity.get("startedAt"))
         if started_day is not None and started_day > day:
@@ -302,11 +305,11 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
         _pesticide_422(str(exc))
 
     raw_attrs = None
+    meter_review = None
     if check_meter:
-        sensor_op = _sensor_op_of_day(tenant_id, parcel_ref, day or _today(parcel or {}))
+        sensor_op = _sensor_op_of_day(tenant_id, parcel_ref, day)
         if sensor_op is not None:
             sensor_id, sensor_entity, sensor_day = sensor_op
-            actor = _resolve_actor(_get_roles(request))
             if overlap is None:
                 raise HTTPException(409, {
                     "code": "sensor_irrigation_exists",
@@ -316,7 +319,7 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
                     "day": sensor_day.isoformat(),
                 })
             if overlap == "replace_sensor":
-                if actor not in SENSOR_REVOKE_ACTORS:
+                if actor_role not in SENSOR_REVOKE_ACTORS:
                     raise HTTPException(403, "Only a technical consultant or a tenant admin can replace sensor operations")
                 update_entity_attrs(tenant_id, sensor_id, _sensor_cancel_update(
                     sensor_entity, _get_user_id(request), "replaced by a manual record",
@@ -324,13 +327,18 @@ async def api_complete_operation(operation_id: str, request: Request, body: dict
             else:
                 raw_attrs = {
                     "possibleDuplicateOf": {"type": "Relationship", "object": sensor_id},
-                    "duplicateReview": {"type": "Property", "value": "keep_both"},
+                    "duplicateReview": _review_attr([sensor_id]),
                 }
+                meter_review = _review_attr(_reviewed_ids(sensor_entity) + [operation_id])
 
-    return complete_operation(
+    result = complete_operation(
         tenant_id, operation_id, ended_at=ended_at, started_at=started_at, extra_attrs=body,
         **({"raw_attrs": raw_attrs} if raw_attrs else {}),
     )
+    if meter_review is not None:
+        # No modificationLog entry: the bridge keeps updating the meter record.
+        update_entity_attrs(tenant_id, sensor_id, {"duplicateReview": meter_review})
+    return result
 
 
 def _sensor_op_of_day(tenant_id: str, parcel_ref: str, day: date):
@@ -346,6 +354,24 @@ def _prop_val(prop: dict | None):
     if not isinstance(prop, dict):
         return None
     return prop.get("value")
+
+
+def _review_attr(ids) -> dict:
+    """duplicateReview records what the person looked at: the decision and the ids reviewed."""
+    return {"type": "Property", "value": {"decision": "keep_both", "reviewed": sorted(set(ids))}}
+
+
+def _reviewed_ids(entity: dict) -> list:
+    value = _prop_val(entity.get("duplicateReview"))
+    if isinstance(value, dict) and isinstance(value.get("reviewed"), list):
+        return [str(x) for x in value["reviewed"]]
+    return []  # an old plain-string value reviewed nothing in particular
+
+
+def _flagged_ids(entity: dict) -> list:
+    link = entity.get("possibleDuplicateOf")
+    obj = link.get("object") if isinstance(link, dict) else link
+    return sorted(str(x) for x in (obj if isinstance(obj, list) else [obj] if obj else []))
 
 
 def _sensor_cancel_update(entity: dict, user_id: str, reason: str) -> dict:
@@ -430,7 +456,7 @@ async def api_duplicate_review(operation_id: str, request: Request, body: dict):
         raise HTTPException(400, "Operation is not flagged as a possible duplicate")
     if body.get("decision") != "keep_both":
         _unprocessable("invalid_decision", "decision must be keep_both")
-    update_entity_attrs(tenant_id, operation_id, {"duplicateReview": {"type": "Property", "value": "keep_both"}})
+    update_entity_attrs(tenant_id, operation_id, {"duplicateReview": _review_attr(_flagged_ids(entity))})
     return {"operation_id": operation_id, "duplicateReview": "keep_both"}
 
 

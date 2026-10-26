@@ -105,8 +105,34 @@ def test_keep_both_completes_and_links_the_sensor_operation(env):
     assert "sensorOverlap" not in kw["extra_attrs"]
     raw = kw["raw_attrs"]
     assert raw["possibleDuplicateOf"] == {"type": "Relationship", "object": SENSOR_ID}
-    assert raw["duplicateReview"] == {"type": "Property", "value": "keep_both"}
-    assert env["updates"] == []
+    assert raw["duplicateReview"] == {
+        "type": "Property", "value": {"decision": "keep_both", "reviewed": [SENSOR_ID]}}
+    # the meter operation records the review too, without a modificationLog entry
+    (sid, attrs), = env["updates"]
+    assert sid == SENSOR_ID
+    assert attrs == {"duplicateReview": {
+        "type": "Property", "value": {"decision": "keep_both", "reviewed": [OP_ID]}}}
+
+
+def test_keep_both_keeps_earlier_reviewed_ids_on_the_meter_operation(env):
+    meter = _sensor()
+    meter["duplicateReview"] = _prop({"decision": "keep_both", "reviewed": ["urn:x:earlier"]})
+    env["entities"][SENSOR_ID] = meter
+    assert _complete({"sensorOverlap": "keep_both"}).status_code == 200
+    (_, attrs), = env["updates"]
+    assert attrs["duplicateReview"]["value"]["reviewed"] == sorted(["urn:x:earlier", OP_ID])
+
+
+def test_ended_at_is_the_checked_day_when_no_completed_on(env):
+    assert _complete({}).status_code == 200
+    assert env["completed"][0][1]["ended_at"] == "2026-10-25T12:00:00Z"
+
+
+def test_non_irrigation_keeps_now_when_no_completed_on(env):
+    env["entities"][OP_ID] = _manual(op_type="tillage")
+    env["entities"][OP_ID]["tillageType"] = _prop("plough")
+    assert _complete({}).status_code == 200
+    assert env["completed"][0][1].get("ended_at") is None
 
 
 def test_replace_sensor_by_manager_cancels_sensor_then_completes(env):
@@ -198,7 +224,16 @@ def test_review_keep_both_writes_only_duplicate_review(env):
     assert r.status_code == 200, r.text
     (eid, attrs), = env["updates"]
     assert eid == SENSOR_ID
-    assert attrs == {"duplicateReview": {"type": "Property", "value": "keep_both"}}
+    assert attrs == {"duplicateReview": {
+        "type": "Property", "value": {"decision": "keep_both", "reviewed": [OP_ID]}}}
+
+
+def test_review_records_every_flagged_id(env):
+    env["entities"][SENSOR_ID] = _flagged(
+        possibleDuplicateOf={"type": "Relationship", "object": ["urn:x:b", OP_ID]})
+    assert _review({"decision": "keep_both"}).status_code == 200
+    (_, attrs), = env["updates"]
+    assert attrs["duplicateReview"]["value"]["reviewed"] == sorted(["urn:x:b", OP_ID])
 
 
 def test_review_other_decision_is_422(env):

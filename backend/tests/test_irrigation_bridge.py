@@ -491,3 +491,31 @@ async def test_bridge_manual_query_failure_leaves_the_flag_alone(world):
     orion.query_entities = boom
     await run_bridge_for_tenant("tenant-a", TODAY)
     assert orion.deleted_attrs == [] and orion.patched == []
+
+
+@pytest.mark.asyncio
+async def test_bridge_stale_flag_already_gone_is_done(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000, log=[{"by": "sensor", "field": "waterVolume"}])
+    existing["possibleDuplicateOf"] = {"type": "Relationship", "object": [MANUAL_A]}
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(100, 5000)}, manual=[])
+
+    async def gone(entity_id, attr):
+        raise _not_found(entity_id)
+    orion.delete_entity_attr = gone
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert counts["skipped"] == 0 and counts["updated"] == 1
+
+
+@pytest.mark.asyncio
+async def test_bridge_manual_read_error_names_the_tenant(world, caplog):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], readings={m1: _counter(0, 5000)})
+
+    async def boom(**kw):
+        if kw.get("type") == "AgriParcelOperation":
+            raise RuntimeError("orion down")
+        return orion.devices
+    orion.query_entities = boom
+    await run_bridge_for_tenant("tenant-a", TODAY)
+    assert any("manual operations unreadable tenant=tenant-a" in r.message for r in caplog.records)

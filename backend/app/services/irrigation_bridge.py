@@ -207,7 +207,7 @@ def _utc_day(value: Any) -> date | None:
         return None
 
 
-async def _manual_irrigation_days(client: OrionClient, parcel_urn: str) -> dict[date, list[str]] | None:
+async def _manual_irrigation_days(client: OrionClient, tenant_id: str, parcel_urn: str) -> dict[date, list[str]] | None:
     """Completed irrigation operations of the parcel that people recorded, by UTC day of
     endedAt (else startedAt). None when they could not be read: the flag is then left as it is."""
     q = f'operationType=="irrigation";status=="completed";hasAgriParcel=="{parcel_urn}"'
@@ -227,7 +227,7 @@ async def _manual_irrigation_days(client: OrionClient, parcel_urn: str) -> dict[
                 return by_day
             offset += _PAGE
     except Exception as exc:  # noqa: BLE001
-        logger.error("irrigation bridge: manual operations unreadable parcel=%s: %s", parcel_urn, exc)
+        logger.error("irrigation bridge: manual operations unreadable tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
         return None
 
 
@@ -343,7 +343,7 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
         counts["skipped"] += len(totals)
         return
 
-    manual_days = await _manual_irrigation_days(client, parcel_urn)
+    manual_days = await _manual_irrigation_days(client, tenant_id, parcel_urn)
     for day, litres in sorted(totals.items()):
         volume_m3, per_ha = _dose(litres, area)
         duplicates = None if manual_days is None else sorted(manual_days.get(day, []))
@@ -411,7 +411,11 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
                 await _merge_patch(client, op_id, attrs)
             if flag_changed and not duplicates:
                 # Merge-patch cannot remove an attribute. duplicateReview is a person's: never touched.
-                await client.delete_entity_attr(op_id, "possibleDuplicateOf")
+                try:
+                    await client.delete_entity_attr(op_id, "possibleDuplicateOf")
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code != 404:
+                        raise  # 404: the attribute is already gone
             counts["updated"] += 1
             logger.info("irrigation bridge: updated tenant=%s parcel=%s op=%s m3 %s -> %s",
                         tenant_id, parcel_urn, op_id, old_m3, volume_m3)

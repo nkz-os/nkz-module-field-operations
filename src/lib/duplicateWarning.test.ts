@@ -33,15 +33,28 @@ describe('withSensorOverlap', () => {
 });
 
 describe('needsDuplicateReview', () => {
-  const flagged = { object: ['urn:x'] };
-  it('is true for a completed sensor irrigation flagged and not reviewed', () => {
-    expect(needsDuplicateReview('completed', 'sensor', 'irrigation', flagged, undefined)).toBe(true);
+  const flagged = { type: 'Relationship', object: ['urn:a', 'urn:b'] };
+  const review = (ids: string[]) => ({ type: 'Property', value: { decision: 'keep_both', reviewed: ids } });
+  const check = (f: unknown, r: unknown, status = 'completed', src = 'sensor', type = 'irrigation') =>
+    needsDuplicateReview(status, src, type, f, r);
+
+  it('is true when flagged and never reviewed', () => {
+    expect(check(flagged, undefined)).toBe(true);
   });
-  it('is false once reviewed, unflagged, or not a live sensor irrigation', () => {
-    expect(needsDuplicateReview('completed', 'sensor', 'irrigation', flagged, { value: 'keep_both' })).toBe(false);
-    expect(needsDuplicateReview('completed', 'sensor', 'irrigation', undefined, undefined)).toBe(false);
-    expect(needsDuplicateReview('cancelled', 'sensor', 'irrigation', flagged, undefined)).toBe(false);
-    expect(needsDuplicateReview('completed', 'manual', 'irrigation', flagged, undefined)).toBe(false);
-    expect(needsDuplicateReview('completed', 'sensor', 'spraying', flagged, undefined)).toBe(false);
+  it('is true while any flagged id is not in reviewed', () => {
+    expect(check(flagged, review(['urn:a']))).toBe(true);
+  });
+  it('is false once every flagged id is reviewed', () => {
+    expect(check(flagged, review(['urn:b', 'urn:a']))).toBe(false);
+    expect(check({ type: 'Property', value: ['urn:a'] }, review(['urn:a']))).toBe(false);
+  });
+  it('counts an old plain-string review as nothing reviewed', () => {
+    expect(check(flagged, { type: 'Property', value: 'keep_both' })).toBe(true);
+  });
+  it('is false when unflagged or not a live sensor irrigation', () => {
+    expect(check(undefined, undefined)).toBe(false);
+    expect(check(flagged, undefined, 'cancelled')).toBe(false);
+    expect(check(flagged, undefined, 'completed', 'manual')).toBe(false);
+    expect(check(flagged, undefined, 'completed', 'sensor', 'spraying')).toBe(false);
   });
 });

@@ -30,11 +30,37 @@ export function withSensorOverlap(
   return { ...body, sensorOverlap: choice };
 }
 
-/** A meter record flagged as a possible duplicate that nobody has reviewed yet. */
+function unwrap(attr: unknown): unknown {
+  if (attr && typeof attr === 'object' && !Array.isArray(attr)) {
+    const a = attr as Record<string, unknown>;
+    if ('object' in a) return a.object;
+    if ('value' in a) return a.value;
+  }
+  return attr;
+}
+
+/** The ids a flag points at, from a normalized attribute or a bare keyValues one. */
+function flaggedIds(attr: unknown): string[] {
+  const v = unwrap(attr);
+  const list = Array.isArray(v) ? v : v ? [v] : [];
+  return list.filter((x): x is string => typeof x === 'string');
+}
+
+/** The ids a review covered; an old plain-string review covered none. */
+function reviewedIds(attr: unknown): string[] {
+  const v = unwrap(attr);
+  if (v && typeof v === 'object' && Array.isArray((v as { reviewed?: unknown }).reviewed)) {
+    return (v as { reviewed: unknown[] }).reviewed.filter((x): x is string => typeof x === 'string');
+  }
+  return [];
+}
+
+/** A meter record flagged as a possible duplicate where some flagged id has not been reviewed. */
 export function needsDuplicateReview(
   status: string, dataSource: string, operationType: string,
   possibleDuplicateOf: unknown, duplicateReview: unknown,
 ): boolean {
-  return canCorrectSensorOperation(status, dataSource, operationType)
-    && Boolean(possibleDuplicateOf) && !duplicateReview;
+  if (!canCorrectSensorOperation(status, dataSource, operationType)) return false;
+  const reviewed = new Set(reviewedIds(duplicateReview));
+  return flaggedIds(possibleDuplicateOf).some(id => !reviewed.has(id));
 }
