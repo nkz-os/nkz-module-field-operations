@@ -9,6 +9,7 @@ import { usePesticideValidation } from '../hooks/usePesticideValidation';
 import {
   NITROGEN_FORMS, formatGrade, nitrogenFormOf, prepareFertilizationBody,
 } from '../lib/fertilizerComposition';
+import { buildCompleteBody, dateErrorKey, localDay } from '../lib/completeBody';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -336,6 +337,8 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const [saving, setSaving]                     = useState(false);
   const [siexSaving, setSiexSaving]             = useState(false);
   const [actionError, setActionError]           = useState<string | null>(null);
+  const today                                   = localDay();
+  const [completedOn, setCompletedOn]           = useState<string>(today);
 
   const status    = operation.status?.value ?? '';
   const opType    = operation.operationType?.value ?? '';
@@ -374,12 +377,14 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(buildCompleteBody(payload, completedOn)),
         }
       );
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         const detail = err.detail;
+        const dateKey = typeof detail === 'object' ? dateErrorKey(detail?.code) : null;
+        if (dateKey) throw new Error(t(dateKey));
         if (typeof detail === 'object' && detail?.code === 'pesticide_not_authorized') {
           throw new Error(
             detail.detail ?? t('spraying.pesticideRejected', { defaultValue: 'Not authorized for this crop' }),
@@ -624,6 +629,17 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
         {/* Footer */}
         {canEdit && (
           <div className="flex items-center justify-end gap-2 p-4 border-t border-nkz-border">
+            <label className="mr-auto text-xs text-nkz-text-muted">
+              {t('form.completedOn')}
+              <input
+                id="operation-completed-on"
+                type="date"
+                value={completedOn}
+                max={today}
+                onChange={(e) => setCompletedOn(e.target.value)}
+                className="mt-0.5 block rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+              />
+            </label>
             <button
               onClick={onClose}
               className="text-sm px-4 py-2 rounded-lg border border-nkz-border text-nkz-text-muted hover:bg-nkz-background transition-colors"

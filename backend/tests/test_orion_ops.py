@@ -318,3 +318,13 @@ class TestExtrapolateToFullParcel:
         # fuelUsed should exist but without unitCode
         assert "value" in body["fuelUsed"]
         assert "unitCode" not in body["fuelUsed"]
+
+
+def test_complete_operation_overrides_started_at(monkeypatch):
+    from app import orion_ops
+    sent = {}
+    monkeypatch.setattr(orion_ops, "update_entity_attrs", lambda t, e, a: sent.update(a))
+    orion_ops.complete_operation("tenant-a", "urn:x", ended_at="2026-10-20T12:00:00Z",
+                                 started_at="2026-10-20T12:00:00Z")
+    assert sent["startedAt"]["value"]["@value"] == "2026-10-20T12:00:00Z"
+    assert sent["endedAt"]["value"]["@value"] == "2026-10-20T12:00:00Z"

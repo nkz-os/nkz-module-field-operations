@@ -55,6 +55,9 @@
   "form": {
     "title": "Données de l'Opération",
     "complete": "Complete operation",
+    "completedOn": "Date de réalisation",
+    "invalidDate": "Date non valide",
+    "futureDate": "La date ne peut pas être dans le futur",
     "readOnly": "Operation is read-only"
   },
   "fields": {

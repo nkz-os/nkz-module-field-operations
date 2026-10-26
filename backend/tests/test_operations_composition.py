@@ -116,3 +116,109 @@ def test_complete_rejects_a_grade_over_100_against_stored_contents(mock_get, moc
     assert resp.status_code == 422
     assert resp.json()["detail"]["code"] == "invalid_fertilizer_composition"
     mock_complete.assert_not_called()
+
+
+# ── parcel link under both names, and the real completion date ────────────────
+import datetime as _dt
+
+from app.api import operations as _ops_route
+
+
+def _spray_entity(link_name="hasAgriParcel", **attrs):
+    entity = _entity("spraying", productName="X", productRate=1.0, **attrs)
+    entity[link_name] = entity.pop("hasAgriParcel")
+    return entity
+
+
+def _complete_env(monkeypatch, entity, today=_dt.date(2026, 10, 25)):
+    calls = {}
+    parcel = {"id": PARCEL, "type": "AgriParcel"}
+    monkeypatch.setattr(_ops_route, "get_entity",
+                        lambda tenant, eid: entity if eid == OP_ID else parcel)
+    monkeypatch.setattr(_ops_route, "_today", lambda p: today, raising=False)
+    monkeypatch.setattr(_ops_route, "enforce_spraying_validation",
+                        lambda *a, **k: calls.setdefault("validation", a))
+    monkeypatch.setattr(_ops_route, "complete_operation",
+                        lambda *a, **k: calls.setdefault("complete", (a, k)) and {})
+    return calls
+
+
+def test_complete_reads_the_parcel_link_under_refagriparcel(monkeypatch):
+    calls = _complete_env(monkeypatch, _spray_entity("refAgriParcel"))
+    resp = client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS, json={})
+    assert resp.status_code == 200, resp.text
+    assert calls["validation"][1] == PARCEL
+
+
+def test_complete_reads_the_parcel_link_under_hasagriparcel(monkeypatch):
+    calls = _complete_env(monkeypatch, _spray_entity("hasAgriParcel"))
+    resp = client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS, json={})
+    assert resp.status_code == 200, resp.text
+    assert calls["validation"][1] == PARCEL
+
+
+def _post_complete(body):
+    return client.post(f"{BASE}/operations/{OP_ID}/complete", headers=HEADERS, json=body)
+
+
+def test_completed_on_sets_ended_at_to_noon(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({"completedOn": "2026-10-20"})
+    assert resp.status_code == 200, resp.text
+    kwargs = calls["complete"][1]
+    assert kwargs["ended_at"] == "2026-10-20T12:00:00Z"
+    assert kwargs.get("started_at") is None
+    assert "completedOn" not in kwargs["extra_attrs"]
+
+
+def test_absent_completed_on_keeps_now(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({})
+    assert resp.status_code == 200, resp.text
+    assert calls["complete"][1].get("ended_at") is None
+
+
+def test_completed_on_today_is_accepted(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    assert _post_complete({"completedOn": "2026-10-25"}).status_code == 200
+    assert calls["complete"][1]["ended_at"] == "2026-10-25T12:00:00Z"
+
+
+def test_invalid_completed_on_is_422(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({"completedOn": "20/10/2026"})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "invalid_date"
+    assert "complete" not in calls
+
+
+def test_future_completed_on_is_422(monkeypatch):
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough"))
+    resp = _post_complete({"completedOn": "2026-10-26"})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "future_date"
+    assert "complete" not in calls
+
+
+def test_started_at_after_completed_on_is_moved(monkeypatch):
+    started = {"@type": "DateTime", "@value": "2026-10-24T08:00:00+00:00"}
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough", startedAt=started))
+    assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
+    assert calls["complete"][1]["started_at"] == "2026-10-20T12:00:00Z"
+
+
+def test_started_at_before_completed_on_is_left_alone(monkeypatch):
+    started = {"@type": "DateTime", "@value": "2026-10-18T08:00:00+00:00"}
+    calls = _complete_env(monkeypatch, _entity("tillage", tillageType="plough", startedAt=started))
+    assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
+    assert calls["complete"][1].get("started_at") is None
+
+
+def test_unresolved_parcel_logs_a_warning(monkeypatch, caplog):
+    entity = _entity("tillage", tillageType="plough")
+    _complete_env(monkeypatch, entity)
+    monkeypatch.setattr(_ops_route, "get_entity", lambda tenant, eid: entity if eid == OP_ID else None)
+    with caplog.at_level("WARNING"):
+        assert _post_complete({"completedOn": "2026-10-20"}).status_code == 200
+    assert any(OP_ID in r.getMessage() and PARCEL in r.getMessage() and "tenant-1" in r.getMessage()
+               for r in caplog.records)
