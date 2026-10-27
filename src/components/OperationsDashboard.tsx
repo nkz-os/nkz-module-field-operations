@@ -131,7 +131,7 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
           >
             {t(tab.labelKey)}
             {tab.key === 'pending' && needsReviewCount > 0 && (
-              <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full">
+              <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-nkz-danger rounded-full">
                 {needsReviewCount > 9 ? '9+' : needsReviewCount}
               </span>
             )}
@@ -146,10 +146,10 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
             <span className="animate-pulse">{t('loading')}</span>
           </div>
         ) : error ? (
-          <div className="text-red-500 text-sm p-3 bg-red-50 rounded-lg">
+          <div className="text-nkz-danger text-sm p-3 bg-nkz-danger-soft rounded-lg">
             <p className="font-semibold">{t('errorLoading')}</p>
             <p className="text-xs mt-1">{error}</p>
-            <button onClick={fetchOperations} className="mt-2 text-xs text-red-700 underline">
+            <button onClick={fetchOperations} className="mt-2 text-xs text-nkz-danger-strong underline">
               {t('retry')}
             </button>
           </div>

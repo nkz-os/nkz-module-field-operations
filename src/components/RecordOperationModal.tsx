@@ -7,7 +7,7 @@ import {
 } from '../lib/recordModel';
 
 const API_BASE = `${API_ORIGIN}/api/field-operations`;
-const INPUT = 'mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base';
+const INPUT = 'mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-bg px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base';
 const LABEL = 'text-xs font-medium text-nkz-text-muted';
 
 /** Today in the user's time zone, as YYYY-MM-DD (a record is never in the future). */
