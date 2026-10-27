@@ -144,6 +144,7 @@ def complete_operation(
     ended_at: Optional[str] = None,
     extra_attrs: Optional[dict] = None,
     started_at: Optional[str] = None,
+    raw_attrs: Optional[dict] = None,
 ) -> dict:
     now = ended_at or datetime.now(timezone.utc).isoformat()
     update = {
@@ -158,6 +159,8 @@ def complete_operation(
                 update[key] = {"type": "Property", "value": value["value"], "unitCode": value["unitCode"]}
             else:
                 update[key] = {"type": "Property", "value": value}
+    if raw_attrs:
+        update.update(raw_attrs)  # already NGSI-LD attributes (Relationships)
     update_entity_attrs(tenant_id, operation_id, update)
     logger.info("Completed operation %s", operation_id)
     return update

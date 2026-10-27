@@ -148,7 +148,12 @@
     "confirmCorrect": "Enregistrer la correction",
     "confirmRevoke": "Confirmer la révocation",
     "reasonRequired": "Le motif est obligatoire",
-    "doseInvalid": "La dose doit être supérieure à 0"
+    "doseInvalid": "La dose doit être supérieure à 0",
+    "duplicateOnComplete": "Un compteur d'eau a déjà enregistré une irrigation ce jour-là ({{dose}} L/ha).",
+    "duplicateOnCompleteNoDose": "Un compteur d'eau a déjà enregistré une irrigation ce jour-là.",
+    "keepBoth": "Garder les deux",
+    "replaceSensor": "Remplacer l'enregistrement du compteur",
+    "possibleDuplicate": "Doublon possible d'une irrigation saisie manuellement"
   },
 
   "siex": {

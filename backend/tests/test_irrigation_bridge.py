@@ -40,12 +40,19 @@ def _not_found(url: str) -> httpx.HTTPStatusError:
 class FakeOrion:
     def __init__(self, devices, parcels, ops=None):
         self.devices, self.parcels, self.ops = devices, parcels, dict(ops or {})
-        self.created, self.patched = [], []
+        self.created, self.patched, self.deleted_attrs, self.op_queries = [], [], [], []
+        self.manual_ops = []
         self.context_url = "http://context.test/ctx.json"
 
-    async def query_entities(self, type=None, limit=100, offset=0, options=None, **kw):
+    async def query_entities(self, type=None, q=None, limit=100, offset=0, options=None, **kw):
+        if type == "AgriParcelOperation":
+            self.op_queries.append((q, options))
+            return self.manual_ops[offset:offset + limit]
         assert type == "Device"
         return self.devices[offset:offset + limit]
+
+    async def delete_entity_attr(self, entity_id, attr):
+        self.deleted_attrs.append((entity_id, attr))
 
     async def get_entity(self, entity_id, options=None):
         if entity_id in self.parcels:
@@ -66,9 +73,10 @@ class FakeOrion:
 def world(monkeypatch):
     state = {"readings": {}, "calls": []}
 
-    def install(devices, parcels=None, ops=None, readings=None):
+    def install(devices, parcels=None, ops=None, readings=None, manual=None):
         orion = FakeOrion(devices, parcels if parcels is not None else {PARCEL: {"id": PARCEL, "area": 0.5}},
                           ops)
+        orion.manual_ops = list(manual or [])
         state["orion"] = orion
         state["readings"] = readings or {}
         state["calls"] = []
@@ -368,3 +376,146 @@ async def test_bridge_warns_when_total_drops_to_zero(world, caplog):
     assert orion.patched == [] and orion.created == []
     msgs = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert any("operation exists" in m and OP_ID in m and "tenant-a" in m and "p-1" in m for m in msgs)
+
+
+# --- possible duplicate of a manual irrigation ----------------------------------------------
+
+MANUAL_A = "urn:ngsi-ld:AgriParcelOperation:manual-b"
+MANUAL_B = "urn:ngsi-ld:AgriParcelOperation:manual-a"
+
+
+def _manual_op(op_id, ended, source="manual", started=None):
+    op = {"id": op_id, "type": "AgriParcelOperation", "operationType": "irrigation",
+          "status": "completed", "dataSource": source}
+    if ended:
+        op["endedAt"] = ended
+    if started:
+        op["startedAt"] = started
+    return op
+
+
+@pytest.mark.asyncio
+async def test_bridge_flags_a_day_with_manual_irrigation(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    manual = [_manual_op(MANUAL_A, "2026-10-24T12:00:00Z"),
+              _manual_op(MANUAL_B, {"@type": "DateTime", "@value": "2026-10-24T05:00:00Z"}),
+              _manual_op("urn:x:other-day", "2026-10-23T12:00:00Z"),
+              _manual_op("urn:x:meter", "2026-10-24T12:00:00Z", source="sensor"),
+              _manual_op("urn:x:no-end", None, started="2026-10-24T01:00:00Z"),
+              _manual_op("urn:x:undated", None)]
+    orion = world([_device(m1)], readings={m1: _counter(0, 5000)}, manual=manual)
+    await run_bridge_for_tenant("tenant-a", TODAY)
+    (op,) = orion.created
+    assert op["possibleDuplicateOf"] == {
+        "type": "Relationship", "object": sorted([MANUAL_A, MANUAL_B, "urn:x:no-end"])}
+    assert "duplicateReview" not in op
+    (q, options), = orion.op_queries  # one query per parcel
+    assert q == f'operationType=="irrigation";status=="completed";hasAgriParcel=="{PARCEL}"'
+    assert options == "keyValues"
+
+
+@pytest.mark.asyncio
+async def test_bridge_does_not_flag_without_manual_irrigation(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], readings={m1: _counter(0, 5000)},
+                  manual=[_manual_op("urn:x:other-day", "2026-10-23T12:00:00Z")])
+    await run_bridge_for_tenant("tenant-a", TODAY)
+    (op,) = orion.created
+    assert "possibleDuplicateOf" not in op and "duplicateReview" not in op
+
+
+@pytest.mark.asyncio
+async def test_bridge_adds_the_flag_to_an_existing_operation(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000, log=[{"by": "sensor", "field": "waterVolume"}])
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(100, 5000)},
+                  manual=[_manual_op(MANUAL_A, "2026-10-24T12:00:00Z")])
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert counts["updated"] == 1
+    (entity_id, attrs), = orion.patched
+    assert attrs["possibleDuplicateOf"] == {"type": "Relationship", "object": [MANUAL_A]}
+    assert "duplicateReview" not in attrs
+    assert "modificationLog" not in attrs  # the dose did not change
+    assert orion.deleted_attrs == []
+
+
+@pytest.mark.asyncio
+async def test_bridge_flag_unchanged_is_a_noop(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000, log=[{"by": "sensor", "field": "waterVolume"}])
+    existing["possibleDuplicateOf"] = {"type": "Relationship", "object": MANUAL_A}
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(100, 5000)},
+                  manual=[_manual_op(MANUAL_A, "2026-10-24T12:00:00Z")])
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.patched == [] and counts["unchanged"] == 1
+
+
+@pytest.mark.asyncio
+async def test_bridge_removes_a_stale_flag_and_keeps_the_review(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000, log=[{"by": "sensor", "field": "waterVolume"}])
+    existing["possibleDuplicateOf"] = {"type": "Relationship", "object": [MANUAL_A]}
+    existing["duplicateReview"] = {"type": "Property", "value": "keep_both"}
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(100, 5000)}, manual=[])
+    await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.deleted_attrs == [(OP_ID, "possibleDuplicateOf")]
+    assert all("duplicateReview" not in attrs for _, attrs in orion.patched)
+
+
+@pytest.mark.asyncio
+async def test_bridge_never_writes_review_when_dose_updates(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000)
+    existing["possibleDuplicateOf"] = {"type": "Relationship", "object": [MANUAL_A]}
+    existing["duplicateReview"] = {"type": "Property", "value": "keep_both"}
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(0, 6000)},
+                  manual=[_manual_op(MANUAL_A, "2026-10-24T12:00:00Z")])
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert counts["updated"] == 1  # a review does not freeze late-telemetry updates
+    (_, attrs), = orion.patched
+    assert "duplicateReview" not in attrs
+    assert attrs["waterPerHectare"]["value"] == 12000
+
+
+@pytest.mark.asyncio
+async def test_bridge_manual_query_failure_leaves_the_flag_alone(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000, log=[{"by": "sensor", "field": "waterVolume"}])
+    existing["possibleDuplicateOf"] = {"type": "Relationship", "object": [MANUAL_A]}
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(100, 5000)})
+
+    async def boom(**kw):
+        if kw.get("type") == "AgriParcelOperation":
+            raise RuntimeError("orion down")
+        return orion.devices
+    orion.query_entities = boom
+    await run_bridge_for_tenant("tenant-a", TODAY)
+    assert orion.deleted_attrs == [] and orion.patched == []
+
+
+@pytest.mark.asyncio
+async def test_bridge_stale_flag_already_gone_is_done(world):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    existing = _sensor_op(5.0, 10000, log=[{"by": "sensor", "field": "waterVolume"}])
+    existing["possibleDuplicateOf"] = {"type": "Relationship", "object": [MANUAL_A]}
+    orion = world([_device(m1)], ops={OP_ID: existing}, readings={m1: _counter(100, 5000)}, manual=[])
+
+    async def gone(entity_id, attr):
+        raise _not_found(entity_id)
+    orion.delete_entity_attr = gone
+    counts = await run_bridge_for_tenant("tenant-a", TODAY)
+    assert counts["skipped"] == 0 and counts["updated"] == 1
+
+
+@pytest.mark.asyncio
+async def test_bridge_manual_read_error_names_the_tenant(world, caplog):
+    m1 = "urn:ngsi-ld:Device:m-1"
+    orion = world([_device(m1)], readings={m1: _counter(0, 5000)})
+
+    async def boom(**kw):
+        if kw.get("type") == "AgriParcelOperation":
+            raise RuntimeError("orion down")
+        return orion.devices
+    orion.query_entities = boom
+    await run_bridge_for_tenant("tenant-a", TODAY)
+    assert any("manual operations unreadable tenant=tenant-a" in r.message for r in caplog.records)

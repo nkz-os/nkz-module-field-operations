@@ -11,6 +11,10 @@ import {
 } from '../lib/fertilizerComposition';
 import { buildCompleteBody, dateErrorKey, localDay } from '../lib/completeBody';
 import { canCorrectSensorOperation, SENSOR_OPERATION_MANAGER_ROLES } from '../lib/sensorOperation';
+import {
+  duplicateChoices, needsDuplicateReview, parseSensorConflict, withSensorOverlap,
+  type SensorConflict, type SensorOverlap,
+} from '../lib/duplicateWarning';
 import type { Operation } from './OperationCard';
 
 interface OperationDetailProps {
@@ -343,6 +347,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const [sensorMode, setSensorMode]             = useState<'correct' | 'revoke' | null>(null);
   const [newDose, setNewDose]                   = useState('');
   const [sensorReason, setSensorReason]         = useState('');
+  const [sensorConflict, setSensorConflict]     = useState<SensorConflict | null>(null);
 
   const status    = operation.status?.value ?? '';
   const opType    = operation.operationType?.value ?? '';
@@ -362,10 +367,14 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
   const auth = useAuth();
   const canCorrectSensor = canCorrectSensorOperation(status, dataSource, opType)
     && auth.hasAnyRole(SENSOR_OPERATION_MANAGER_ROLES);
+  const isSensorManager = auth.hasAnyRole(SENSOR_OPERATION_MANAGER_ROLES);
+  const showDuplicateBanner = needsDuplicateReview(
+    status, dataSource, opType, operation['possibleDuplicateOf'], operation['duplicateReview'],
+  );
   const grade      = opType === 'fertilization' ? formatGrade(operation) : null;
   const nForm      = opType === 'fertilization' ? nitrogenFormOf(operation) : null;
 
-  async function handleComplete() {
+  async function handleComplete(overlap?: SensorOverlap) {
     let payload: Record<string, unknown> = form;
     if (opType === 'fertilization') {
       const prepared = prepareFertilizationBody(form);
@@ -377,19 +386,26 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
     }
     setSaving(true);
     setActionError(null);
+    setSensorConflict(null);
     try {
+      const completeBody = buildCompleteBody(payload, completedOn);
       const resp = await fetch(
         `${API_BASE}/operations/${encodeURIComponent(operation.id)}/complete`,
         {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildCompleteBody(payload, completedOn)),
+          body: JSON.stringify(overlap ? withSensorOverlap(completeBody, overlap) : completeBody),
         }
       );
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         const detail = err.detail;
+        const conflict = resp.status === 409 ? parseSensorConflict(detail) : null;
+        if (conflict) {
+          setSensorConflict(conflict);
+          return;
+        }
         const dateKey = typeof detail === 'object' ? dateErrorKey(detail?.code) : null;
         if (dateKey) throw new Error(t(dateKey));
         if (typeof detail === 'object' && detail?.code === 'pesticide_not_authorized') {
@@ -459,6 +475,32 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
               ? { waterPerHectare: dose, reason }
               : { cancellationReason: reason },
           ),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(typeof err.detail === 'string' ? err.detail : `HTTP ${resp.status}`);
+      }
+      onSaved();
+      onClose();
+    } catch (e) {
+      setActionError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleKeepBoth() {
+    setSaving(true);
+    setActionError(null);
+    try {
+      const resp = await fetch(
+        `${API_BASE}/operations/${encodeURIComponent(operation.id)}/duplicate-review`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision: 'keep_both' }),
         }
       );
       if (!resp.ok) {
@@ -651,6 +693,32 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                                   campaign={campaignOf(operationDay(operation))} />
               )}
 
+              {/* Meter irrigation flagged as a possible duplicate of a manual record */}
+              {showDuplicateBanner && (
+                <div id="duplicate-review-banner" className="mt-4 space-y-2 rounded-lg border border-nkz-warning-strong bg-nkz-warning-soft p-3">
+                  <p className="text-sm text-nkz-warning-strong">{t('sensorOp.possibleDuplicate')}</p>
+                  <div className="flex gap-2">
+                    <button
+                      id="duplicate-keep-both-btn"
+                      onClick={handleKeepBoth}
+                      disabled={saving}
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-border text-nkz-text-primary hover:bg-nkz-surface-sunken disabled:opacity-50 transition-colors"
+                    >
+                      {t('sensorOp.keepBoth')}
+                    </button>
+                    {isSensorManager && (
+                      <button
+                        id="duplicate-revoke-btn"
+                        onClick={() => setSensorMode('revoke')}
+                        className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-danger text-nkz-danger-strong hover:bg-nkz-danger-soft transition-colors"
+                      >
+                        {t('sensorOp.revoke')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Sensor-origin irrigation: correct the dose or revoke */}
               {canCorrectSensor && (
                 <div className="mt-4 space-y-2">
@@ -724,6 +792,29 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
             </div>
           </div>
 
+          {sensorConflict && (
+            <div id="sensor-conflict-warning" className="mx-4 mb-4 space-y-2 rounded-lg border border-nkz-warning-strong bg-nkz-warning-soft p-3">
+              <p className="text-sm text-nkz-warning-strong">
+                {sensorConflict.waterPerHectare != null
+                  ? t('sensorOp.duplicateOnComplete', { dose: sensorConflict.waterPerHectare })
+                  : t('sensorOp.duplicateOnCompleteNoDose')}
+              </p>
+              <div className="flex gap-2">
+                {duplicateChoices(isSensorManager).map(choice => (
+                  <button
+                    key={choice}
+                    id={`sensor-overlap-${choice}-btn`}
+                    onClick={() => handleComplete(choice)}
+                    disabled={saving}
+                    className="flex-1 text-sm px-3 py-2 rounded-lg border border-nkz-border text-nkz-text-primary hover:bg-nkz-surface-sunken disabled:opacity-50 transition-colors"
+                  >
+                    {t(choice === 'keep_both' ? 'sensorOp.keepBoth' : 'sensorOp.replaceSensor')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {actionError && (
             <div className="mx-4 mb-4 p-2 bg-red-50 rounded-lg text-xs text-red-600 border border-red-200">
               {actionError}
@@ -753,7 +844,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
             </button>
             <button
               id="operation-complete-btn"
-              onClick={handleComplete}
+              onClick={() => handleComplete()}
               disabled={saving}
               className="text-sm px-4 py-2 rounded-lg bg-nkz-accent-base hover:bg-nkz-accent-dark disabled:opacity-50 text-white font-semibold transition-colors"
             >

@@ -148,7 +148,12 @@
     "confirmCorrect": "Desar correcció",
     "confirmRevoke": "Confirmar revocació",
     "reasonRequired": "El motiu és obligatori",
-    "doseInvalid": "La dosi ha de ser major que 0"
+    "doseInvalid": "La dosi ha de ser major que 0",
+    "duplicateOnComplete": "Un comptador d'aigua ja ha registrat reg aquest dia ({{dose}} L/ha).",
+    "duplicateOnCompleteNoDose": "Un comptador d'aigua ja ha registrat reg aquest dia.",
+    "keepBoth": "Mantenir tots dos",
+    "replaceSensor": "Substituir el registre del comptador",
+    "possibleDuplicate": "Possible duplicat d'un reg registrat manualment"
   },
 
   "siex": {

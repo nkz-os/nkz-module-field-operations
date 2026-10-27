@@ -166,10 +166,11 @@ async def _get_or_none(client: OrionClient, entity_id: str, options: str | None 
 # --- bridge --------------------------------------------------------------------------------
 
 def _new_operation(client: OrionClient, op_id: str, parcel_urn: str, day: date,
-                   volume_m3: float, per_ha: int, devices: list[str]) -> dict:
+                   volume_m3: float, per_ha: int, devices: list[str],
+                   duplicates: list[str] | None = None) -> dict:
     stamp = f"{day.isoformat()}T12:00:00Z"  # field-ops convention: the day is the fact
     now = datetime.now(timezone.utc).isoformat()
-    return {
+    op = {
         "id": op_id,
         "type": "AgriParcelOperation",
         "@context": [client.context_url],
@@ -187,6 +188,47 @@ def _new_operation(client: OrionClient, op_id: str, parcel_urn: str, day: date,
         "observedBy": {"type": "Relationship", "object": devices},
         "modificationLog": {"type": "Property", "value": []},
     }
+    if duplicates:
+        op["possibleDuplicateOf"] = _duplicate_relationship(duplicates)
+    return op
+
+
+def _duplicate_relationship(ids: list[str]) -> dict:
+    return {"type": "Relationship", "object": sorted(ids)}
+
+
+def _utc_day(value: Any) -> date | None:
+    raw = _plain(value)
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).astimezone(timezone.utc).date()
+    except ValueError:
+        return None
+
+
+async def _manual_irrigation_days(client: OrionClient, tenant_id: str, parcel_urn: str) -> dict[date, list[str]] | None:
+    """Completed irrigation operations of the parcel that people recorded, by UTC day of
+    endedAt (else startedAt). None when they could not be read: the flag is then left as it is."""
+    q = f'operationType=="irrigation";status=="completed";hasAgriParcel=="{parcel_urn}"'
+    by_day: dict[date, list[str]] = {}
+    offset = 0
+    try:
+        while True:
+            page = await client.query_entities(
+                type="AgriParcelOperation", q=q, limit=_PAGE, offset=offset, options="keyValues")
+            for op in page or []:
+                if _plain(op.get("dataSource")) == SOURCE or not op.get("id"):
+                    continue
+                day = _utc_day(op.get("endedAt")) or _utc_day(op.get("startedAt"))
+                if day is not None:
+                    by_day.setdefault(day, []).append(op["id"])
+            if not page or len(page) < _PAGE:
+                return by_day
+            offset += _PAGE
+    except Exception as exc:  # noqa: BLE001
+        logger.error("irrigation bridge: manual operations unreadable tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
+        return None
 
 
 async def run_bridge_for_tenant(tenant_id: str, today: date) -> dict:
@@ -301,8 +343,10 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
         counts["skipped"] += len(totals)
         return
 
+    manual_days = await _manual_irrigation_days(client, tenant_id, parcel_urn)
     for day, litres in sorted(totals.items()):
         volume_m3, per_ha = _dose(litres, area)
+        duplicates = None if manual_days is None else sorted(manual_days.get(day, []))
         op_id = operation_id(tenant_id, parcel_urn, day)
         if per_ha <= 0:
             logger.info("irrigation bridge: dose rounds to 0 L/ha, skipped tenant=%s parcel=%s day=%s",
@@ -315,7 +359,8 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
             if existing is None:
                 try:
                     await client.create_entity(
-                        _new_operation(client, op_id, parcel_urn, day, volume_m3, per_ha, devices))
+                        _new_operation(client, op_id, parcel_urn, day, volume_m3, per_ha, devices,
+                                       duplicates))
                 except httpx.HTTPStatusError as exc:
                     if exc.response.status_code != 409:
                         raise
@@ -335,8 +380,11 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
                 continue
             old_m3 = _number(existing.get("waterVolume"))
             old_ha = _number(existing.get("waterPerHectare"))
-            if (old_m3 is not None and old_ha is not None
-                    and round(old_m3 * 1000) == round(volume_m3 * 1000) and round(old_ha) == per_ha):
+            dose_same = (old_m3 is not None and old_ha is not None
+                         and round(old_m3 * 1000) == round(volume_m3 * 1000) and round(old_ha) == per_ha)
+            old_dups = sorted(str(x) for x in _as_list(_plain(existing.get("possibleDuplicateOf"))))
+            flag_changed = duplicates is not None and duplicates != old_dups
+            if dose_same and not flag_changed:
                 counts["unchanged"] += 1
                 continue
             # Re-read right before writing: a person may have decided since the first read.
@@ -346,15 +394,28 @@ async def _bridge_parcel(client: OrionClient, tenant_id: str, parcel_urn: str,
                 logger.info("irrigation bridge: person's decision kept (re-read) tenant=%s parcel=%s op=%s",
                             tenant_id, parcel_urn, op_id)
                 continue
-            log = list(_as_list(_plain(latest.get("modificationLog"))))
-            log.append({"field": "waterVolume", "old": old_m3, "new": volume_m3, "by": SOURCE,
-                        "at": datetime.now(timezone.utc).isoformat(), "method": "telemetry"})
-            await _merge_patch(client, op_id, {
-                "waterVolume": {"type": "Property", "value": volume_m3, "unitCode": "MTQ"},
-                "waterPerHectare": {"type": "Property", "value": per_ha},
-                "observedBy": {"type": "Relationship", "object": devices},
-                "modificationLog": {"type": "Property", "value": log},
-            })
+            attrs: dict = {}
+            if not dose_same:
+                log = list(_as_list(_plain(latest.get("modificationLog"))))
+                log.append({"field": "waterVolume", "old": old_m3, "new": volume_m3, "by": SOURCE,
+                            "at": datetime.now(timezone.utc).isoformat(), "method": "telemetry"})
+                attrs.update({
+                    "waterVolume": {"type": "Property", "value": volume_m3, "unitCode": "MTQ"},
+                    "waterPerHectare": {"type": "Property", "value": per_ha},
+                    "observedBy": {"type": "Relationship", "object": devices},
+                    "modificationLog": {"type": "Property", "value": log},
+                })
+            if flag_changed and duplicates:
+                attrs["possibleDuplicateOf"] = _duplicate_relationship(duplicates)
+            if attrs:
+                await _merge_patch(client, op_id, attrs)
+            if flag_changed and not duplicates:
+                # Merge-patch cannot remove an attribute. duplicateReview is a person's: never touched.
+                try:
+                    await client.delete_entity_attr(op_id, "possibleDuplicateOf")
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code != 404:
+                        raise  # 404: the attribute is already gone
             counts["updated"] += 1
             logger.info("irrigation bridge: updated tenant=%s parcel=%s op=%s m3 %s -> %s",
                         tenant_id, parcel_urn, op_id, old_m3, volume_m3)
