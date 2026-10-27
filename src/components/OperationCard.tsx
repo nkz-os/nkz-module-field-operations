@@ -23,18 +23,18 @@ interface OperationCardProps {
 }
 
 const STATUS_BORDER: Record<string, string> = {
-  needs_review: 'border-l-4 border-l-red-500',
-  incomplete:   'border-l-4 border-l-orange-400',
-  planned:      'border-l-4 border-l-blue-400',
-  completed:    'border-l-4 border-l-green-500',
+  needs_review: 'border-l-4 border-l-nkz-danger',
+  incomplete:   'border-l-4 border-l-nkz-warning',
+  planned:      'border-l-4 border-l-nkz-info',
+  completed:    'border-l-4 border-l-nkz-success',
   cancelled:    'border-l-4 border-l-nkz-border opacity-60',
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  needs_review: 'bg-red-100 text-red-700',
-  incomplete:   'bg-orange-100 text-orange-700',
-  planned:      'bg-blue-100 text-blue-700',
-  completed:    'bg-green-100 text-green-700',
+  needs_review: 'bg-nkz-danger-soft text-nkz-danger-strong',
+  incomplete:   'bg-nkz-warning-soft text-nkz-warning-strong',
+  planned:      'bg-nkz-info-soft text-nkz-info-strong',
+  completed:    'bg-nkz-success-soft text-nkz-success-strong',
   cancelled:    'bg-nkz-surface text-nkz-text-muted',
 };
 
@@ -100,10 +100,10 @@ const OperationCard: React.FC<OperationCardProps> = ({ operation, onClick }) => 
         <span>👤 {operator}</span>
         <span>📅 {date}</span>
         {operation.dataSource?.value === 'isobus' && (
-          <span className="text-blue-500 font-medium">ISOBUS</span>
+          <span className="text-nkz-info font-medium">ISOBUS</span>
         )}
         {operation.dataSource?.value === 'mixed' && (
-          <span className="text-purple-500 font-medium">ISOBUS + Manual</span>
+          <span className="text-nkz-accent-strong font-medium">ISOBUS + Manual</span>
         )}
       </div>
     </button>

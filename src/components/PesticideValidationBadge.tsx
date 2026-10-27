@@ -8,8 +8,8 @@ interface PesticideValidationBadgeProps {
 
 const BADGE_CLASS: Record<string, string> = {
   loading: 'bg-nkz-surface-sunken text-nkz-text-muted',
-  authorized: 'bg-nkz-positive-soft text-nkz-positive',
-  not_authorized: 'bg-nkz-negative-soft text-nkz-negative',
+  authorized: 'bg-nkz-success-soft text-nkz-success-strong',
+  not_authorized: 'bg-nkz-danger-soft text-nkz-danger-strong',
   unknown_substance: 'bg-nkz-warning-soft text-nkz-warning',
   skipped: 'bg-nkz-surface-sunken text-nkz-text-muted',
 };

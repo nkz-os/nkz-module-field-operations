@@ -92,7 +92,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ operationId, currentUrl, onUp
             flex flex-col items-center justify-center gap-1 w-full h-20
             border-2 border-dashed border-nkz-border rounded-lg cursor-pointer
             hover:border-nkz-accent-base hover:bg-nkz-surface transition-colors
-            ${uploading ? 'opacity-50 cursor-wait' : ''}
+            ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
           `}
         >
           <span className="text-xl">{uploading ? '⏳' : '📷'}</span>
@@ -111,7 +111,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ operationId, currentUrl, onUp
       )}
 
       {error && (
-        <p className="mt-1 text-xs text-red-500">{error}</p>
+        <p className="mt-1 text-xs text-nkz-danger">{error}</p>
       )}
     </div>
   );

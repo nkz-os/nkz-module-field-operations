@@ -53,7 +53,7 @@ function FieldInput({
         inputMode={inputMode}
         value={(form[field] as string | number) ?? ''}
         onChange={e => onChange({ ...form, [field]: type === 'number' ? Number(e.target.value) : e.target.value })}
-        className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+        className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-bg px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
       />
     </label>
   );
@@ -74,7 +74,7 @@ function FieldSelect({
       <select
         value={(form[field] as string) ?? ''}
         onChange={e => onChange({ ...form, [field]: e.target.value })}
-        className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+        className="mt-0.5 block w-full rounded-md border border-nkz-border bg-nkz-bg px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
       >
         <option value="">—</option>
         {options.map(o => (
@@ -300,8 +300,8 @@ function ExtrapolatePreview({
   const factor = parcelAreaHa > 0 ? parcelAreaHa / areaCovered : 0;
 
   return (
-    <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-      <p className="text-xs font-semibold text-blue-700 mb-2">{t('extrapolate.preview')}</p>
+    <div className="mt-2 p-3 bg-nkz-info-soft rounded-lg border border-nkz-info-light">
+      <p className="text-xs font-semibold text-nkz-info-strong mb-2">{t('extrapolate.preview')}</p>
       <label className="block text-xs text-nkz-text-muted">
         {t('extrapolate.parcelAreaHa')}
         <input
@@ -310,11 +310,11 @@ function ExtrapolatePreview({
           step={0.1}
           value={parcelAreaHa || ''}
           onChange={e => setParcelAreaHa(Number(e.target.value))}
-          className="mt-0.5 block w-full rounded border border-blue-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="mt-0.5 block w-full rounded border border-nkz-border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
         />
       </label>
       {parcelAreaHa > 0 && (
-        <p className="mt-2 text-xs text-blue-700 font-mono bg-white p-2 rounded border border-blue-100">
+        <p className="mt-2 text-xs text-nkz-info-strong font-mono bg-nkz-surface p-2 rounded border border-nkz-info-light">
           ({areaCovered} Ha {t('extrapolate.registered')} / {parcelAreaHa} Ha {t('extrapolate.total')}) × {t('extrapolate.values')}
           {' = '}
           <strong>×{factor.toFixed(3)}</strong>
@@ -324,7 +324,7 @@ function ExtrapolatePreview({
         id="extrapolate-confirm"
         onClick={onConfirm}
         disabled={!parcelAreaHa || parcelAreaHa <= areaCovered || saving}
-        className="mt-2 w-full text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-1.5 rounded transition-colors"
+        className="mt-2 w-full text-xs bg-nkz-info hover:bg-nkz-info-strong disabled:opacity-50 text-white font-semibold py-1.5 rounded transition-colors"
       >
         {saving ? t('saving') : t('extrapolate.confirm')}
       </button>
@@ -555,10 +555,10 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
           </div>
           <div className="flex items-center gap-2">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              status === 'needs_review' ? 'bg-red-100 text-red-700' :
-              status === 'incomplete'   ? 'bg-orange-100 text-orange-700' :
-              status === 'planned'      ? 'bg-blue-100 text-blue-700' :
-              status === 'completed'    ? 'bg-green-100 text-green-700' :
+              status === 'needs_review' ? 'bg-nkz-danger-soft text-nkz-danger-strong' :
+              status === 'incomplete'   ? 'bg-nkz-warning-soft text-nkz-warning-strong' :
+              status === 'planned'      ? 'bg-nkz-info-soft text-nkz-info-strong' :
+              status === 'completed'    ? 'bg-nkz-success-soft text-nkz-success-strong' :
               'bg-nkz-surface text-nkz-text-muted'
             }`}>
               {t(`statuses.${status}`)}
@@ -623,7 +623,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                     <button
                       id="extrapolate-toggle"
                       onClick={() => setShowExtrapolate(v => !v)}
-                      className="text-xs text-blue-600 hover:underline font-medium"
+                      className="text-xs text-nkz-info hover:underline font-medium"
                     >
                       📐 {t('extrapolate.trigger')}
                     </button>
@@ -816,7 +816,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
           )}
 
           {actionError && (
-            <div className="mx-4 mb-4 p-2 bg-red-50 rounded-lg text-xs text-red-600 border border-red-200">
+            <div className="mx-4 mb-4 p-2 bg-nkz-danger-soft rounded-lg text-xs text-nkz-danger-strong border border-nkz-danger-light">
               {actionError}
             </div>
           )}
@@ -825,7 +825,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
         {/* Footer */}
         {canEdit && (
           <div className="flex items-center justify-end gap-2 p-4 border-t border-nkz-border">
-            <label className="mr-auto text-xs text-nkz-text-muted">
+            <label className="flex-1 text-xs text-nkz-text-muted">
               {t('form.completedOn')}
               <input
                 id="operation-completed-on"
@@ -833,12 +833,12 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
                 value={completedOn}
                 max={today}
                 onChange={(e) => setCompletedOn(e.target.value)}
-                className="mt-0.5 block rounded-md border border-nkz-border bg-nkz-background px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
+                className="mt-0.5 block rounded-md border border-nkz-border bg-nkz-bg px-2 py-1.5 text-sm text-nkz-text-primary focus:outline-none focus:ring-1 focus:ring-nkz-accent-base"
               />
             </label>
             <button
               onClick={onClose}
-              className="text-sm px-4 py-2 rounded-lg border border-nkz-border text-nkz-text-muted hover:bg-nkz-background transition-colors"
+              className="text-sm px-4 py-2 rounded-lg border border-nkz-border text-nkz-text-muted hover:bg-nkz-bg-secondary transition-colors"
             >
               {t('cancel')}
             </button>
@@ -846,7 +846,7 @@ const OperationDetail: React.FC<OperationDetailProps> = ({ operation, onClose, o
               id="operation-complete-btn"
               onClick={() => handleComplete()}
               disabled={saving}
-              className="text-sm px-4 py-2 rounded-lg bg-nkz-accent-base hover:bg-nkz-accent-dark disabled:opacity-50 text-white font-semibold transition-colors"
+              className="text-sm px-4 py-2 rounded-lg bg-nkz-accent-base hover:bg-nkz-accent-strong disabled:opacity-50 text-white font-semibold transition-colors"
             >
               {saving ? t('saving') : t('form.complete')}
             </button>

@@ -13,15 +13,15 @@ const OP_ICON: Record<string, string> = {
   haymaking: '🌿', baling: '🧱', scouting: '🔍',
 };
 const STATUS_COLOR: Record<string, string> = {
-  needs_review: 'text-red-600', incomplete: 'text-orange-500',
-  planned: 'text-blue-500', issued: 'text-purple-500',
-  completed: 'text-green-500', cancelled: 'text-gray-400',
+  needs_review: 'text-nkz-danger', incomplete: 'text-nkz-warning',
+  planned: 'text-nkz-info', issued: 'text-nkz-accent-strong',
+  completed: 'text-nkz-success', cancelled: 'text-nkz-text-muted',
 };
 const SOURCE_BADGE: Record<string, string> = {
-  odoo: 'bg-purple-100 text-purple-700',
-  api: 'bg-blue-100 text-blue-700',
-  manual: 'bg-gray-100 text-gray-600',
-  isobus: 'bg-green-100 text-green-700',
+  odoo: 'bg-nkz-accent-soft text-nkz-accent-strong',
+  api: 'bg-nkz-info-soft text-nkz-info-strong',
+  manual: 'bg-nkz-surface-sunken text-nkz-text-muted',
+  isobus: 'bg-nkz-success-soft text-nkz-success-strong',
 };
 
 function formatDate(val: unknown): string {
@@ -64,7 +64,7 @@ const OperationsTable: React.FC<OperationsTableProps> = ({ operations, onSelectO
               <tr
                 key={op.id}
                 onClick={() => onSelectOperation(op)}
-                className="border-b border-nkz-border hover:bg-nkz-surface/50 cursor-pointer transition-colors"
+                className="border-b border-nkz-border hover:bg-nkz-surface-sunken cursor-pointer transition-colors"
               >
                 <td className="py-2 px-2 whitespace-nowrap">{date}</td>
                 <td className="py-2 px-2">
