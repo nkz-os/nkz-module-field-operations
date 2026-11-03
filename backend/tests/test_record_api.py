@@ -182,13 +182,41 @@ def test_parcels_carry_the_crop_name_and_survive_odd_names(env):
     assert r.json()["parcels"][0]["cycles"][0]["name"] == "trigo"
 
 
-def test_perennial_is_not_offered_for_harvest(env):
-    vine = {"id": "urn:ngsi-ld:AgriCrop:t:p1:vine", "type": "AgriCrop", "refAgriParcel": P, "status": "active",
-            "cropRole": "main_crop", "species": "VITVI", "cropLifecycle": "perennial",
-            "plantingDate": "2010-03-01", "plantingDateSource": "manual"}
-    env["orion"] = FakeOrion([vine])
+OLIVE = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:olive", "type": "AgriCrop", "refAgriParcel": P, "status": "active",
+         "cropRole": "main_crop", "species": "OLVEU", "cropLifecycle": "perennial",
+         "plantingDate": "2010-03-01", "plantingDateSource": "manual"}
+
+
+def test_record_perennial_harvest_201(env):
+    env["orion"] = FakeOrion([OLIVE])
+    r = TestClient(app).post(URL, headers=H, json={"parcel_id": P, "operation_type": "harvesting",
+                                                   "date": "2026-11-10", "harvestedWeight": 900})
+    assert r.status_code == 201, r.text
+    assert r.json()["crop_id"] == OLIVE["id"] and r.json()["harvest_campaign"] == "2026"
+    assert env["created"][0][1]["operation_type"] == "harvesting"
+
+
+def test_record_uprooting_stored_as_tillage(env):
+    env["orion"] = FakeOrion([OLIVE])
+    r = TestClient(app).post(URL, headers=H, json={"parcel_id": P, "operation_type": "uprooting",
+                                                   "date": "2026-11-10"})
+    assert r.status_code == 201, r.text
+    kw = env["created"][0][1]
+    assert kw["operation_type"] == "tillage" and kw["tillageType"] == "uprooting"
+
+
+def test_record_uprooting_on_annual_409(env):
+    r = TestClient(app).post(URL, headers=H, json={"parcel_id": P, "operation_type": "uprooting",
+                                                   "date": "2026-11-10"})
+    assert r.status_code == 409 and env["created"] == []
+
+
+def test_list_parcels_offers_uproot(env):
+    env["orion"] = FakeOrion([OLIVE])
     r = TestClient(app).get("/api/field-operations/parcels", headers=H)
-    assert r.json()["parcels"][0]["cycles"] == []
+    [c] = r.json()["parcels"][0]["cycles"]
+    assert c["can_uproot"] is True and c["can_harvest"] is True and c["can_sow"] is False
+    assert c["harvest_campaigns"] == []
 
 
 def test_parcel_list_broker_failure_is_a_503(env):

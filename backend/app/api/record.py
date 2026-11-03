@@ -14,7 +14,7 @@ from datetime import date
 
 import requests
 from fastapi import APIRouter, HTTPException, Request
-from nkz_platform_sdk.crop_cycles import resolve_crop_cycles
+from nkz_platform_sdk.crop_cycles import UPROOTING, resolve_crop_cycles
 from nkz_platform_sdk.crop_timeline import (
     CropDataUnavailable,
     ParcelNotFound,
@@ -99,7 +99,7 @@ async def record_operation(request: Request, body: dict):
     # Fields only the user can give are checked before reading anything; the crop
     # (and a planned variety) come from the plan the record lands on.
     _FROM_PLAN = ("cropType", "variety")
-    missing = [f for f in REQUIRED_FIELDS[op_type] if f not in _FROM_PLAN and body.get(f) in (None, "")]
+    missing = [f for f in REQUIRED_FIELDS.get(op_type, []) if f not in _FROM_PLAN and body.get(f) in (None, "")]
     if missing:
         _unprocessable("missing_fields", f"missing: {', '.join(missing)}")
     for field in _NUMBERS:
@@ -124,10 +124,13 @@ async def record_operation(request: Request, body: dict):
         for field in _NUMBERS:
             if field in attrs:
                 attrs[field] = _positive(field, attrs[field])
+        stored_type = op_type
+        if op_type == "uprooting":
+            stored_type, attrs["tillageType"] = "tillage", UPROOTING
         if op_type == "sowing":
             attrs["cropType"] = match.species
             attrs["variety"] = body.get("variety") or match.variety
-        missing = [f for f in REQUIRED_FIELDS[op_type] if attrs.get(f) in (None, "")]
+        missing = [f for f in REQUIRED_FIELDS[stored_type] if attrs.get(f) in (None, "")]
         if missing:
             _unprocessable("missing_fields", f"missing: {', '.join(missing)}")
 
@@ -135,7 +138,7 @@ async def record_operation(request: Request, body: dict):
         try:
             entity = await asyncio.to_thread(
                 create_operation, tenant_id,
-                parcel_id=parcel_urn, operation_type=op_type, work_order=f"REG-{day.isoformat()}",
+                parcel_id=parcel_urn, operation_type=stored_type, work_order=f"REG-{day.isoformat()}",
                 operator=user_id, data_source="manual", status="completed",
                 startedAt=stamp, endedAt=stamp, **attrs,
             )
@@ -155,7 +158,8 @@ async def record_operation(request: Request, body: dict):
             except Exception as exc:  # noqa: BLE001 — the record stands; the sweep catches up
                 logger.warning("record: reconcile failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
         return {"operation_id": entity.get("id"), "crop_id": match.crop_id, "species": match.species,
-                "role": match.role, "campaign": match.campaign, "reconciled": reconciled}
+                "role": match.role, "campaign": match.campaign, "harvest_campaign": match.harvest_campaign,
+                "reconciled": reconciled}
     finally:
         await client.close()
 
@@ -169,9 +173,9 @@ def _cycle_view(cy, crops_by_id: dict) -> dict:
     d["name"] = name if isinstance(name, str) else None
     open_ = cy.status not in _CLOSED
     d["can_sow"] = open_ and cy.start.provenance not in _FACTS
-    # A perennial is not harvested here: for the platform a harvest ends the crop.
-    d["can_harvest"] = (open_ and cy.lifecycle != "perennial" and cy.start.provenance in _FACTS
-                        and cy.end.provenance != "actual")
+    d["can_harvest"] = open_ and cy.start.provenance in _FACTS and cy.end.provenance != "actual"
+    d["can_uproot"] = d["can_harvest"] and cy.lifecycle == "perennial"
+    d["harvest_campaigns"] = [c.to_dict() for c in cy.harvest_campaigns]
     return d
 
 
@@ -183,7 +187,7 @@ async def _parcel_view(tenant_id: str, parcel: dict, sem: asyncio.Semaphore) -> 
             timeline = resolve_crop_cycles(parcel["id"], crops, ops, local_today(full))
             by_id = {c.get("id"): c for c in crops}
             cycles = [_cycle_view(cy, by_id) for cy in timeline.cycles]
-            cycles = [c for c in cycles if c["can_sow"] or c["can_harvest"]]
+            cycles = [c for c in cycles if c["can_sow"] or c["can_harvest"] or c["can_uproot"]]
             readable = True
         except Exception as exc:  # noqa: BLE001 — one unreadable parcel never hides the others
             logger.warning("record: parcel unreadable tenant=%s parcel=%s: %s", tenant_id, parcel.get("id"), exc)

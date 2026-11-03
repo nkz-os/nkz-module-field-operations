@@ -71,9 +71,58 @@ def test_only_sowing_and_harvest_are_recorded_here():
     assert not m.ok and m.reason == "unsupported_type"
 
 
-def test_harvest_of_a_perennial_is_refused():
-    vine = dict(PLANNED, id="urn:ngsi-ld:AgriCrop:t:p1:vine", status="active", cropLifecycle="perennial",
-                harvestDate="2027-09-30")
-    sown = {"id": "s", "hasAgriParcel": P, "operationType": "sowing", "status": "completed", "endedAt": "2026-11-10"}
-    m = match_record(P, [vine], [sown], "harvesting", date(2027, 9, 20), date(2027, 9, 21))
-    assert not m.ok and m.reason == "perennial_harvest_unsupported"
+OLIVE = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:olive", "type": "AgriCrop", "refAgriParcel": P,
+         "status": "active", "cropRole": "main_crop", "species": "OLVEU", "cropLifecycle": "perennial",
+         "plantingDate": "2010-03-01", "plantingDateSource": "manual"}
+
+
+def _uproot(day):
+    return _op("tillage", day, tillageType="uprooting")
+
+
+def test_perennial_harvest_recorded():
+    ops = [_op("harvesting", "2026-12-01")]
+    m = match_record(P, [OLIVE], ops, "harvesting", date(2027, 1, 10), date(2027, 1, 11))
+    assert m.ok and m.crop_id == OLIVE["id"] and m.harvest_campaign == "2026/27"
+
+
+def test_perennial_first_harvest_recorded():
+    m = match_record(P, [OLIVE], [], "harvesting", date(2026, 12, 1), date(2026, 12, 2))
+    assert m.ok and m.crop_id == OLIVE["id"] and m.harvest_campaign == "2026"
+
+
+def test_perennial_same_day_harvest_already_recorded():
+    ops = [_op("harvesting", "2026-12-01")]
+    m = match_record(P, [OLIVE], ops, "harvesting", date(2026, 12, 1), date(2026, 12, 2))
+    assert not m.ok and m.reason == "already_recorded"
+
+
+def test_perennial_harvest_requires_declared_start():
+    olive = {k: v for k, v in OLIVE.items() if k not in ("plantingDate", "plantingDateSource")}
+    m = match_record(P, [olive], [], "harvesting", date(2026, 12, 1), date(2026, 12, 2))
+    assert not m.ok and m.reason == "no_crop_to_close"  # without a start the harvest lands on no stand
+
+
+def test_annual_harvest_unchanged():
+    m = match_record(P, [PLANNED], [_op("sowing", "2026-11-10")], "harvesting", date(2027, 7, 2), date(2027, 7, 3))
+    assert m.ok and m.harvest_campaign is None
+
+
+def test_uprooting_recorded():
+    m = match_record(P, [OLIVE], [_op("harvesting", "2026-12-01")], "uprooting", date(2027, 3, 1), date(2027, 3, 2))
+    assert m.ok and m.crop_id == OLIVE["id"]
+
+
+def test_uprooting_refused_on_annual():
+    m = match_record(P, [PLANNED], [_op("sowing", "2026-11-10")], "uprooting", date(2027, 3, 1), date(2027, 3, 2))
+    assert not m.ok and m.reason == "not_perennial"
+
+
+def test_uprooting_before_last_harvest():
+    m = match_record(P, [OLIVE], [_op("harvesting", "2026-12-01")], "uprooting", date(2026, 11, 1), date(2027, 3, 2))
+    assert not m.ok and m.reason == "date_before_last_harvest"
+
+
+def test_uprooting_closed_cycle():
+    m = match_record(P, [OLIVE], [_uproot("2027-03-01")], "uprooting", date(2027, 3, 5), date(2027, 3, 6))
+    assert not m.ok and m.reason == "already_closed"
