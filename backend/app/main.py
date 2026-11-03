@@ -15,6 +15,7 @@ from .api.internal import router as internal_router
 from .api.plan_summary import router as plan_summary_router
 from .api.record import router as record_router
 from .api.plantations import router as plantations_router
+from .api.declared_crops import router as declared_crops_router
 from .services.timeout_worker import check_stale_operations
 from .services.irrigation_bridge import irrigation_bridge_loop
 from .services import crop_cycles_runtime
@@ -57,6 +58,7 @@ app.include_router(operations_router, dependencies=_user)
 app.include_router(cue_router, dependencies=_user)
 app.include_router(record_router, dependencies=_user)
 app.include_router(plantations_router, dependencies=_user)
+app.include_router(declared_crops_router, dependencies=_user)
 app.include_router(internal_router)
 # Install/uninstall hint from entity-manager: only triggers a subscription reconcile.
 app.include_router(lifecycle_hint_router("/internal/lifecycle", crop_cycles_runtime.reconcile_subscriptions))

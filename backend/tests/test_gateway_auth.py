@@ -82,3 +82,9 @@ def test_startup_accepts_enforced_signature(signed_mode):
 def test_plantations_signature_rejected_when_unsigned(signed_mode, client):
     url = "/api/field-operations/parcels/p1/plantations"
     assert client.post(url, headers=_headers("tenant-a"), json={"eppo": "OLVEU", "planting_year": 2000}).status_code == 401
+
+
+def test_declared_crops_signature_rejected_when_unsigned(signed_mode, client):
+    url = "/api/field-operations/parcels/p1/declared-crops"
+    assert client.get(url, headers=_headers("tenant-a")).status_code == 401
+    assert client.post(url, headers=_headers("tenant-a"), json={"campaign": 2024, "eppo": "TRZAX"}).status_code == 401
