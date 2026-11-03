@@ -22,6 +22,7 @@ WOODY_EPPO = frozenset({
     "VITVI", "OLVEU", "PRNDU", "PIAVE", "MABSD", "PYUCO", "PRNPS", "PRNAR", "PRNDO", "PRNAV",
 })
 MIN_YEAR = 1900
+MAX_VARIETY = 100
 PARCEL_PREFIX = "urn:ngsi-ld:AgriParcel:"
 
 

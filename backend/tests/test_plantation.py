@@ -20,7 +20,7 @@ OWN = "urn:ngsi-ld:AgriCrop:acme:p1:plantation-2000"
 
 class FakeOrion:
     def __init__(self, crops=(), ops=(), create_error=None):
-        self.parcel = {"id": P, "type": "AgriParcel", "name": "Soto Alto"}
+        self.parcel = {"id": P, "type": "AgriParcel", "name": "Parcel A"}
         self.crops, self.ops, self.create_error = list(crops), list(ops), create_error
         self.created = []
 
@@ -160,3 +160,54 @@ def test_plantation_then_harvest_records(env):
     entity = pl.build_plantation("acme", P, "OLVEU", date(2000, 1, 1), None)
     m = match_record(P, [entity], [], "harvesting", date(2026, 11, 20), date(2026, 11, 20))
     assert m.ok and m.crop_id == OWN and m.harvest_campaign == "2026"
+
+
+WHEAT = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:wheat", "type": "AgriCrop", "hasAgriParcel": P, "status": "planned",
+         "cropRole": "main_crop", "species": "TRZAX", "sowingWindowStart": "2023-10-15",
+         "expectedTerminationDate": "2024-07-31"}
+
+
+def _wheat_ops():
+    def op(n, kind, day):
+        return {"id": f"urn:ngsi-ld:AgriParcelOperation:{n}", "type": "AgriParcelOperation", "operationType": kind,
+                "status": "completed", "endedAt": f"{day}T12:00:00Z", "hasAgriParcel": P}
+    return [op("w1", "sowing", "2023-11-10"), op("w2", "harvesting", "2024-07-05")]
+
+
+def test_older_than_recorded_annual_crop_is_refused(env):
+    env["orion"].crops, env["orion"].ops = [WHEAT], _wheat_ops()
+    r = post({"eppo": "OLVEU", "planting_year": 2000})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "overlaps_recorded_crop"
+    assert env["orion"].created == []
+
+
+def test_after_recorded_annual_crop_is_allowed(env):
+    env["orion"].crops, env["orion"].ops = [WHEAT], _wheat_ops()
+    assert post({"eppo": "OLVEU", "planting_year": 2025}).status_code == 201
+
+
+def test_any_open_main_crop_blocks_even_with_a_later_cover_crop(env):
+    cover = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:cover", "type": "AgriCrop", "hasAgriParcel": P,
+             "status": "active", "cropRole": "cover_crop", "species": "VICSA", "plantingDate": "2026-10-01",
+             "plantingDateSource": "manual"}
+    olive = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:olive", "type": "AgriCrop", "hasAgriParcel": P, "status": "active",
+             "cropRole": "main_crop", "species": "OLVEU", "cropLifecycle": "perennial",
+             "plantingDate": "1995-01-01", "plantingDateSource": "manual"}
+    env["orion"].crops = [olive, cover]
+    r = post({"eppo": "OLVEU", "planting_year": 2000})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "parcel_has_current_crop"
+    assert r.json()["detail"]["crop_id"] == olive["id"]
+
+
+def test_variety_over_100_chars_is_422(env):
+    r = post({"eppo": "OLVEU", "planting_year": 2000, "variety": "x" * 101})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_variety"
+    assert post({"eppo": "OLVEU", "planting_year": 2000, "variety": "x" * 100}).status_code == 201
+
+
+def test_tenant_comes_from_the_gateway_header_not_the_body(env):
+    r = TestClient(app).post(URL, headers={**H, "X-Tenant-ID": "acme"},
+                             json={"eppo": "OLVEU", "planting_year": 2000, "tenant_id": "other", "tenant": "other"})
+    assert r.status_code == 201 and r.json() == {"crop_id": OWN}
+    assert env["reconciled"] == [("acme", P)]
+    assert "other" not in env["orion"].created[0]["id"]

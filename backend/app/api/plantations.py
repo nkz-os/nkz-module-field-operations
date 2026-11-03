@@ -7,6 +7,7 @@ Mounted behind the gateway identity. The entity rules live in
 from __future__ import annotations
 
 import logging
+from datetime import date
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -20,6 +21,13 @@ from .record import _PARCEL, _crop_data, _orion
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/field-operations", tags=["plantations"])
+
+
+_FACTS = ("actual", "declared")
+
+
+def _as_date(value) -> date:
+    return value if isinstance(value, date) else date.fromisoformat(str(value)[:10])
 
 
 def _today(parcel: dict):
@@ -47,13 +55,24 @@ async def declare_plantation(request: Request, parcel_id: str, body: dict):
             _raise(exc)
         variety = body.get("variety")
         variety = variety.strip() if isinstance(variety, str) and variety.strip() else None
+        if variety is not None and len(variety) > pl.MAX_VARIETY:
+            raise HTTPException(status_code=422, detail={"code": "invalid_variety",
+                                                         "detail": f"variety is at most {pl.MAX_VARIETY} characters"})
         crop_id = pl.plantation_crop_id(tenant_id, parcel_urn, planting.year)
         if any(c.get("id") == crop_id for c in crops):
             raise HTTPException(status_code=409, detail={"code": "already_declared", "crop_id": crop_id})
-        current = resolve_crop_cycles(parcel_urn, crops, ops, today).current
-        if current is not None and current.role == "main_crop":
+        cycles = resolve_crop_cycles(parcel_urn, crops, ops, today).cycles
+        mains = [cy for cy in cycles if cy.role == "main_crop" and cy.start.provenance in _FACTS]
+        open_ = next((cy for cy in mains if cy.end.provenance != "actual"), None)
+        if open_ is not None:
             raise HTTPException(status_code=409, detail={"code": "parcel_has_current_crop",
-                                                         "crop_id": current.crop_id})
+                                                         "crop_id": open_.crop_id})
+        # A stand older than recorded annual history would take over those harvests.
+        for cy in mains:
+            bounds = [b.date for b in (cy.start, cy.end) if b.date is not None]
+            if any(planting <= _as_date(d) for d in bounds):
+                raise HTTPException(status_code=409, detail={"code": "overlaps_recorded_crop",
+                                                             "crop_id": cy.crop_id})
         try:
             await client.create_entity(pl.build_plantation(tenant_id, parcel_urn, eppo, planting, variety))
         except httpx.HTTPStatusError as exc:
