@@ -34,7 +34,7 @@ class FakeOrion:
     def __init__(self, crops=(), create_error=None):
         self.parcel = {"id": P, "type": "AgriParcel", "name": "Soto Alto"}
         self.crops = list(crops)
-        self.created, self.updated, self.appended = [], [], []
+        self.created, self.updated, self.appended, self.deleted = [], [], [], []
         self.create_error = create_error
 
     async def get_entity(self, eid, options=None):
@@ -54,6 +54,9 @@ class FakeOrion:
 
     async def append_entity_attrs(self, eid, attrs, overwrite=True):
         self.appended.append((eid, attrs))
+
+    async def delete_entity(self, eid):
+        self.deleted.append(eid)
 
     async def close(self):
         pass
@@ -96,11 +99,19 @@ def test_species_is_normalised_to_upper_case(env):
     assert env["orion"].created[0]["species"]["value"] == "TRZAX"
 
 
-@pytest.mark.parametrize("campaign", [2026, 2027])
-def test_current_or_future_campaign_is_422(env, campaign):
+@pytest.mark.parametrize("today,campaign,ok", [
+    (date(2026, 11, 20), 2026, True), (date(2026, 11, 20), 2027, False),
+    (date(2026, 7, 1), 2026, True), (date(2026, 6, 30), 2026, False),
+    (date(2026, 3, 1), 2026, False), (date(2026, 3, 1), 2025, True),
+])
+def test_campaign_past_follows_the_july_rollover(env, monkeypatch, today, campaign, ok):
+    monkeypatch.setattr(route, "_today", lambda parcel: today)
     r = post({"campaign": campaign, "eppo": "TRZAX"})
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "campaign_not_past"
-    assert env["orion"].created == []
+    if ok:
+        assert r.status_code == 201
+    else:
+        assert r.status_code == 422 and r.json()["detail"]["code"] == "campaign_not_past"
+        assert env["orion"].created == []
 
 
 @pytest.mark.parametrize("campaign", ["2024", 2024.5, True, None, 12])
@@ -194,3 +205,56 @@ def test_parcels_sharing_a_last_segment_get_distinct_ids(env):
     assert r.status_code == 201
     assert r.json()["crop_id"] == "urn:ngsi-ld:AgriCrop:tenant-a:y:p1:declared-2024"
     assert env["orion"].updated == [] and len(env["orion"].created) == 1
+
+
+def test_planned_never_sown_crop_does_not_block_a_declaration(env):
+    planned = {"id": "urn:ngsi-ld:AgriCrop:tenant-a:p1:plan", "type": "AgriCrop", "hasAgriParcel": P,
+               "status": "pending", "cropRole": "main_crop", "species": "ZEAMX",
+               "plannedPlantingDate": "2025-04-20", "plannedHarvestDate": "2025-10-05"}
+    env["orion"] = FakeOrion([planned])
+    assert post({"campaign": 2025, "eppo": "TRZAX"}).status_code == 201
+
+
+DEL = URL + "/2024"
+
+
+def delete(url=DEL, headers=H):
+    return TestClient(app).delete(url, headers=headers)
+
+
+def test_delete_removes_the_declaration(env):
+    env["orion"] = FakeOrion([declared(2024)])
+    r = delete()
+    assert r.status_code == 204 and env["orion"].deleted == [OWN]
+
+
+def test_delete_without_declaration_is_404(env):
+    assert delete().status_code == 404 and env["orion"].deleted == []
+
+
+def test_delete_never_touches_a_dated_crop(env):
+    env["orion"] = FakeOrion([DATED])
+    assert TestClient(app).delete(URL + "/2025", headers=H).status_code == 404
+    assert env["orion"].deleted == []
+    # even when a dated crop carries the declared id
+    clash = dict(DATED, id=dp.declared_crop_id("tenant-a", P, 2025))
+    env["orion"] = FakeOrion([clash])
+    assert TestClient(app).delete(URL + "/2025", headers=H).status_code == 404
+    assert env["orion"].deleted == []
+
+
+def test_delete_takes_the_tenant_from_identity(env):
+    other = declared(2024, cid="urn:ngsi-ld:AgriCrop:tenant-b:p1:declared-2024")
+    env["orion"] = FakeOrion([other])
+    assert delete().status_code == 404 and env["orion"].deleted == []
+    r = delete(headers={"X-Tenant-ID": "tenant-b", "X-User-ID": "u1"})
+    assert r.status_code == 204 and env["orion"].deleted == [other["id"]]
+
+
+def test_delete_store_failure_is_503(env):
+    env["orion"] = FakeOrion([declared(2024)])
+
+    async def boom(eid):
+        raise httpx.ConnectError("down")
+    env["orion"].delete_entity = boom
+    assert delete().status_code == 503

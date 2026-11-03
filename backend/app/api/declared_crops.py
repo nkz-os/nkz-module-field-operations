@@ -73,6 +73,35 @@ async def declare_past_crop(request: Request, parcel_id: str, body: dict):
         await client.close()
 
 
+@router.delete("/parcels/{parcel_id}/declared-crops/{campaign}", status_code=204)
+async def delete_declared_crop(request: Request, parcel_id: str, campaign: int):
+    tenant_id = request.state.tenant_id
+    parcel_urn = _parcel_urn(parcel_id)
+    crop_id = dp.declared_crop_id(tenant_id, parcel_urn, campaign)
+    client = _orion(tenant_id)
+    try:
+        parcel, crops, ops = await _crop_data(client, parcel_urn)
+        timeline = resolve_crop_cycles(parcel_urn, crops, ops, _today(parcel))
+        if not dp.declared_only_id(timeline.cycles, crop_id):
+            raise HTTPException(status_code=404, detail={"code": "declaration_not_found"})
+        try:
+            await client.delete_entity(crop_id)
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                raise HTTPException(status_code=404, detail={"code": "declaration_not_found"})
+            logger.error("declare-past: delete failed tenant=%s parcel=%s crop=%s: %s",
+                         tenant_id, parcel_urn, crop_id, exc)
+            raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        except (httpx.HTTPError, RuntimeError) as exc:
+            logger.error("declare-past: delete failed tenant=%s parcel=%s crop=%s: %s",
+                         tenant_id, parcel_urn, crop_id, exc)
+            raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        logger.info("declare-past: deleted tenant=%s parcel=%s crop=%s campaign=%s",
+                    tenant_id, parcel_urn, crop_id, campaign)
+    finally:
+        await client.close()
+
+
 @router.get("/parcels/{parcel_id}/declared-crops")
 async def list_declared_crops(request: Request, parcel_id: str) -> list[dict]:
     tenant_id = request.state.tenant_id
