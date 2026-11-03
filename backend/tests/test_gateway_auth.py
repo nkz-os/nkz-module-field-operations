@@ -77,3 +77,8 @@ def test_startup_refuses_without_signature_check(monkeypatch):
 
 def test_startup_accepts_enforced_signature(signed_mode):
     ensure_signature_enforced()
+
+
+def test_plantations_signature_rejected_when_unsigned(signed_mode, client):
+    url = "/api/field-operations/parcels/p1/plantations"
+    assert client.post(url, headers=_headers("tenant-a"), json={"eppo": "OLVEU", "planting_year": 2000}).status_code == 401
