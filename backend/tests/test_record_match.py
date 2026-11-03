@@ -126,3 +126,15 @@ def test_uprooting_before_last_harvest():
 def test_uprooting_closed_cycle():
     m = match_record(P, [OLIVE], [_uproot("2027-03-01")], "uprooting", date(2027, 3, 5), date(2027, 3, 6))
     assert not m.ok and m.reason == "already_closed"
+
+
+def test_uprooting_dated_before_an_existing_uprooting():
+    m = match_record(P, [OLIVE], [_uproot("2027-03-01")], "uprooting", date(2027, 2, 1), date(2027, 3, 6))
+    assert not m.ok and m.reason == "already_closed"
+
+
+def test_uprooting_with_closed_and_open_stand_targets_the_open_one():
+    old = dict(OLIVE, id="urn:ngsi-ld:AgriCrop:acme:p1:old", plantingDate="1990-03-01", species="VITVI")
+    ops = [_op("tillage", "2020-01-10", tillageType="uprooting", hasAgriCrop=old["id"])]
+    m = match_record(P, [old, OLIVE], ops, "uprooting", date(2027, 3, 1), date(2027, 3, 2))
+    assert m.ok and m.crop_id == OLIVE["id"]

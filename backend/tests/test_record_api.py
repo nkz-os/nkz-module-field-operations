@@ -211,6 +211,28 @@ def test_record_uprooting_on_annual_409(env):
     assert r.status_code == 409 and env["created"] == []
 
 
+def _post(body):
+    return TestClient(app).post(URL, headers=H, json=body)
+
+
+def test_perennial_same_day_duplicate_409(env):
+    op = {"id": "urn:ngsi-ld:AgriParcelOperation:acme:h1", "hasAgriParcel": P, "operationType": "harvesting",
+          "status": "completed", "endedAt": "2026-11-10"}
+    env["orion"] = FakeOrion([OLIVE], [op])
+    r = _post({"parcel_id": P, "operation_type": "harvesting", "date": "2026-11-10", "harvestedWeight": 900})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "already_recorded"
+    assert env["created"] == []
+
+
+def test_uprooting_before_last_harvest_409(env):
+    op = {"id": "urn:ngsi-ld:AgriParcelOperation:acme:h1", "hasAgriParcel": P, "operationType": "harvesting",
+          "status": "completed", "endedAt": "2026-11-10"}
+    env["orion"] = FakeOrion([OLIVE], [op])
+    r = _post({"parcel_id": P, "operation_type": "uprooting", "date": "2026-11-01"})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "date_before_last_harvest"
+    assert env["created"] == []
+
+
 def test_list_parcels_offers_uproot(env):
     env["orion"] = FakeOrion([OLIVE])
     r = TestClient(app).get("/api/field-operations/parcels", headers=H)

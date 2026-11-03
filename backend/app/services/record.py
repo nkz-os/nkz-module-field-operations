@@ -51,23 +51,28 @@ def _hit(cycle: CropCycle, crops: list[dict], harvest_campaign: str | None = Non
                  role=cycle.role, campaign=cycle.campaign_label, harvest_campaign=harvest_campaign)
 
 
-def _match_uprooting(parcel_urn, crops, before, after, day: date) -> Match:
-    stands = {cy.crop_id: cy for cy in before.cycles if cy.lifecycle == "perennial"}
-    if any(cy.end.provenance == "actual" for cy in stands.values()) and not any(
-            cy.end.provenance != "actual" and cy.start.provenance in _FACTS for cy in stands.values()):
-        return Match(False, "already_closed")
+def _match_uprooting(parcel_urn, crops, ops, before, day: date, at: date) -> Match:
+    """One place decides every uprooting refusal, from the stand it would pull out."""
+    stands = [cy for cy in before.cycles if cy.lifecycle == "perennial"]
     if not stands:
         return Match(False, "not_perennial" if before.cycles else "no_crop_to_close")
-    landed = [cy for cy in after.cycles if cy.crop_id in stands and cy.end.provenance == "actual"
-              and stands[cy.crop_id].end.provenance != "actual"]
-    if not landed:
-        return Match(False, "no_crop_to_close")
-    cycle, old = landed[0], stands[landed[0].crop_id]
-    if old.start.provenance not in _FACTS:
+    # An open stand is the target (the latest planted); a closed one only when none is open.
+    open_ = [cy for cy in stands if cy.end.provenance != "actual"]
+    if not open_:
+        return Match(False, "already_closed")
+    alive = [cy for cy in open_ if cy.start.provenance in _FACTS]
+    if not alive:
         return Match(False, "not_sown")
-    if old.harvests and day.isoformat() < old.harvests[-1]["date"]:
+    target = max(alive, key=lambda cy: cy.start.date or date.min)
+    if target.harvests and day.isoformat() < target.harvests[-1]["date"]:
         return Match(False, "date_before_last_harvest")
-    return _hit(cycle, crops)
+    probe = {**_probe("uprooting", day), "hasAgriParcel": parcel_urn, "hasAgriCrop": target.crop_id}
+    after = resolve_crop_cycles(parcel_urn, crops, [*ops, probe], at)
+    hit = next((cy for cy in after.cycles if cy.crop_id == target.crop_id), None)
+    if any(u.get("id") == _PROBE_ID for u in after.unassigned) or hit is None \
+            or hit.end.provenance != "actual":
+        return Match(False, "no_crop_to_close")
+    return _hit(hit, crops)
 
 
 def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: str,
@@ -81,18 +86,11 @@ def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: s
     uprooting = op_type == "uprooting"
     at = max(today, day)
     before = resolve_crop_cycles(parcel_urn, crops, ops, at)
+    if uprooting:
+        return _match_uprooting(parcel_urn, crops, ops, before, day, at)
     probe = {**_probe(op_type, day), "hasAgriParcel": parcel_urn}
     after = resolve_crop_cycles(parcel_urn, crops, [*ops, probe], at)
     unassigned = any(u.get("id") == _PROBE_ID for u in after.unassigned)
-    if uprooting:
-        if unassigned:
-            stands = [cy for cy in before.cycles if cy.lifecycle == "perennial"]
-            if any(cy.end.provenance == "actual" for cy in stands):
-                return Match(False, "already_closed")
-            if stands and any(h["date"] > day.isoformat() for cy in stands for h in cy.harvests):
-                return Match(False, "date_before_last_harvest")
-            return Match(False, "not_perennial" if before.cycles and not stands else "no_crop_to_close")
-        return _match_uprooting(parcel_urn, crops, before, after, day)
     if unassigned:
         return Match(False, "no_planned_crop" if sowing else "no_crop_to_close")
 
