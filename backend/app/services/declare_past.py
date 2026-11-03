@@ -20,7 +20,8 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-EPPO = re.compile(r"^[A-Z]{4,6}$")  # same shape the module accepts for a crop's EPPO code
+# Exact shape FaST reads a cycle species with; a code it would drop must not be written.
+EPPO = re.compile(r"^[A-Z0-9]{5,6}$")
 MIN_CAMPAIGN = 1900
 DECLARED_CAMPAIGN_ATTR = "nkz:declaredCampaign"
 
@@ -35,7 +36,7 @@ def parse_species(raw) -> str:
     value = raw.strip().upper() if isinstance(raw, str) else ""
     # "fallow" fits the shape but is not a crop; barbecho is out of v1.
     if not EPPO.match(value) or value == "FALLOW":
-        raise DeclareError(422, "unknown_species", "eppo must be an EPPO code")
+        raise DeclareError(422, "invalid_species", "eppo must be an EPPO code (5-6 letters or digits)")
     return value
 
 

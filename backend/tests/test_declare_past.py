@@ -108,10 +108,10 @@ def test_malformed_campaign_is_422(env, campaign):
     assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_campaign"
 
 
-@pytest.mark.parametrize("eppo", ["fallow", "", None, "TR", "TRZAX1", 5, "TRZ AX"])
-def test_unknown_species_is_422(env, eppo):
+@pytest.mark.parametrize("eppo", ["fallow", "", None, "TR", "WHEA", "TRZAXXX", 5, "TRZ AX", "TRZ-X"])
+def test_invalid_species_is_422(env, eppo):
     r = post({"campaign": 2024, "eppo": eppo})
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "unknown_species"
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_species"
     assert env["orion"].created == []
 
 
@@ -178,3 +178,8 @@ def test_reconcile_never_links_a_declared_crop(env):
 
 def test_ids_are_per_parcel_and_campaign():
     assert dp.declared_crop_id("t", "urn:ngsi-ld:AgriParcel:p9", 2020) == "urn:ngsi-ld:AgriCrop:t:p9:declared-2020"
+
+
+def test_five_char_code_with_digit_is_accepted(env):
+    assert post({"campaign": 2024, "eppo": "1ABCD"}).status_code == 201
+    assert env["orion"].created[0]["species"]["value"] == "1ABCD"
