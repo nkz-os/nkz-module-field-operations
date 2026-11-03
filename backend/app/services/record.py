@@ -29,6 +29,7 @@ class Match:
     role: str | None = None
     campaign: int | None = None
     harvest_campaign: str | None = None
+    harvest_campaign_label: int | None = None
 
 
 def _value(attr):
@@ -45,10 +46,14 @@ def _probe(op_type: str, day: date) -> dict:
     return probe
 
 
-def _hit(cycle: CropCycle, crops: list[dict], harvest_campaign: str | None = None) -> Match:
+def _hit(cycle: CropCycle, crops: list[dict], harvest_campaign=None) -> Match:
     crop = next((c for c in crops if c.get("id") == cycle.crop_id), {})
+    # A stand's campaign_label is its planting year, not a season: only annual crops report it.
+    campaign = None if cycle.lifecycle == "perennial" else cycle.campaign_label
     return Match(True, crop_id=cycle.crop_id, species=cycle.species, variety=_value(crop.get("variety")),
-                 role=cycle.role, campaign=cycle.campaign_label, harvest_campaign=harvest_campaign)
+                 role=cycle.role, campaign=campaign,
+                 harvest_campaign=harvest_campaign.display if harvest_campaign else None,
+                 harvest_campaign_label=harvest_campaign.label if harvest_campaign else None)
 
 
 def _match_uprooting(parcel_urn, crops, ops, before, day: date, at: date) -> Match:
@@ -105,7 +110,7 @@ def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: s
                     return Match(False, "already_recorded")
                 campaign = next((c for c in cy.harvest_campaigns
                                  if any(h["id"] == _PROBE_ID for h in c.harvests)), None)
-                return _hit(cy, crops, campaign.display if campaign else None)
+                return _hit(cy, crops, campaign)
 
     side = "start" if sowing else "end"
     previous = {cy.crop_id: cy for cy in before.cycles}

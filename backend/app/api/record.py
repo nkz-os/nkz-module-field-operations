@@ -161,6 +161,7 @@ async def record_operation(request: Request, body: dict):
                 logger.warning("record: reconcile failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
         return {"operation_id": entity.get("id"), "crop_id": match.crop_id, "species": match.species,
                 "role": match.role, "campaign": match.campaign, "harvest_campaign": match.harvest_campaign,
+                "harvest_campaign_label": match.harvest_campaign_label,
                 "reconciled": reconciled}
     finally:
         await client.close()
