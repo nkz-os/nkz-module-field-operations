@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlantationBody, buildRecordBody, canDeclare, canSubmit, cropNamesFromFarm, errorKey, plantationErrorKey, plantationParcels, targetsFor, type ParcelView } from './recordModel';
+import { buildPlantationBody, buildRecordBody, canDeclare, cropNamesFromFarm, errorKey, plantationErrorKey, plantationParcels, targetsFor, type ParcelView } from './recordModel';
 
 const parcels: ParcelView[] = [
   { id: 'urn:ngsi-ld:AgriParcel:b', name: 'Soto Alto', area: 12, readable: true, cycles: [
