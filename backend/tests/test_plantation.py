@@ -211,3 +211,11 @@ def test_tenant_comes_from_the_gateway_header_not_the_body(env):
     assert r.status_code == 201 and r.json() == {"crop_id": OWN}
     assert env["reconciled"] == [("acme", P)]
     assert "other" not in env["orion"].created[0]["id"]
+
+
+def test_closed_main_crop_without_actual_end_does_not_block(env):
+    harvested = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:barley", "type": "AgriCrop", "hasAgriParcel": P,
+                 "status": "harvested", "cropRole": "main_crop", "species": "HORVX", "cropLifecycle": "annual",
+                 "plantingDate": "2023-11-01", "plantingDateSource": "manual"}
+    env["orion"].crops = [harvested]
+    assert post({"eppo": "OLVEU", "planting_year": 2025}).status_code == 201

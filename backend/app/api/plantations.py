@@ -24,6 +24,22 @@ router = APIRouter(prefix="/api/field-operations", tags=["plantations"])
 
 
 _FACTS = ("actual", "declared")
+_CLOSED = ("harvested", "terminated")
+
+
+def _in_field(cy, today: date) -> bool:
+    """A main crop still in the field on ``today``.
+
+    Mirrors ``is_current`` in ``nkz_platform_sdk.crop_cycles`` for every cycle, not
+    only the top-ranked one, so a later cover crop cannot hide it.
+    """
+    if cy.start.provenance not in _FACTS or cy.start.date is None or cy.status in _CLOSED:
+        return False
+    if _as_date(cy.start.date) > today:
+        return False
+    if cy.end.date is None or today <= _as_date(cy.end.date):
+        return True
+    return cy.end.provenance == "planned" and cy.status == "active"
 
 
 def _as_date(value) -> date:
@@ -63,7 +79,7 @@ async def declare_plantation(request: Request, parcel_id: str, body: dict):
             raise HTTPException(status_code=409, detail={"code": "already_declared", "crop_id": crop_id})
         cycles = resolve_crop_cycles(parcel_urn, crops, ops, today).cycles
         mains = [cy for cy in cycles if cy.role == "main_crop" and cy.start.provenance in _FACTS]
-        open_ = next((cy for cy in mains if cy.end.provenance != "actual"), None)
+        open_ = next((cy for cy in mains if _in_field(cy, today)), None)
         if open_ is not None:
             raise HTTPException(status_code=409, detail={"code": "parcel_has_current_crop",
                                                          "crop_id": open_.crop_id})
