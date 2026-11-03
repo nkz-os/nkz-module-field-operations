@@ -234,7 +234,7 @@ const en = {
       "invalid_date": "The date is not valid.",
       "parcel_has_current_crop": "This parcel already has a current crop.",
       "already_declared": "This plantation is already declared.",
-      "overlaps_recorded_crop": "The planting day is not after the crops already recorded on this parcel.",
+      "overlaps_recorded_crop": "The planting day is not after the crops already recorded on this parcel. Enter a later planting day.",
       "invalid_variety": "The variety is too long (100 characters at most)."
     }
   },
@@ -472,7 +472,7 @@ const es = {
       "invalid_date": "La fecha no es válida.",
       "parcel_has_current_crop": "Esta parcela ya tiene un cultivo actual.",
       "already_declared": "Esta plantación ya está declarada.",
-      "overlaps_recorded_crop": "El día de plantación no es posterior a los cultivos ya registrados en esta parcela.",
+      "overlaps_recorded_crop": "El día de plantación no es posterior a los cultivos ya registrados en esta parcela. Indica un día de plantación posterior.",
       "invalid_variety": "La variedad es demasiado larga (100 caracteres como máximo)."
     }
   },
@@ -569,7 +569,7 @@ const ca = {
       "invalid_date": "La data no és vàlida.",
       "parcel_has_current_crop": "Aquesta parcel·la ja té un cultiu actual.",
       "already_declared": "Aquesta plantació ja està declarada.",
-      "overlaps_recorded_crop": "El dia de plantació no és posterior als cultius ja registrats en aquesta parcel·la.",
+      "overlaps_recorded_crop": "El dia de plantació no és posterior als cultius ja registrats en aquesta parcel·la. Indica un dia de plantació posterior.",
       "invalid_variety": "La varietat és massa llarga (100 caràcters com a màxim)."
     }
   },
@@ -666,7 +666,7 @@ const eu = {
       "invalid_date": "Data ez da baliozkoa.",
       "parcel_has_current_crop": "Lursail honek egungo laborantza bat du jada.",
       "already_declared": "Landaketa hau deklaratuta dago jada.",
-      "overlaps_recorded_crop": "Landatze-eguna ez da partzelan jada erregistratutako laboreen ondorengoa.",
+      "overlaps_recorded_crop": "Landatze-eguna ez da partzelan jada erregistratutako laboreen ondorengoa. Adierazi geroagoko landatze-egun bat.",
       "invalid_variety": "Barietatea luzeegia da (gehienez 100 karaktere)."
     }
   },
@@ -763,7 +763,7 @@ const fr = {
       "invalid_date": "La date n'est pas valide.",
       "parcel_has_current_crop": "Cette parcelle a déjà une culture en cours.",
       "already_declared": "Cette plantation est déjà déclarée.",
-      "overlaps_recorded_crop": "Le jour de plantation n'est pas postérieur aux cultures déjà enregistrées sur cette parcelle.",
+      "overlaps_recorded_crop": "Le jour de plantation n'est pas postérieur aux cultures déjà enregistrées sur cette parcelle. Indiquez un jour de plantation ultérieur.",
       "invalid_variety": "La variété est trop longue (100 caractères au maximum)."
     }
   },
@@ -860,7 +860,7 @@ const pt = {
       "invalid_date": "A data não é válida.",
       "parcel_has_current_crop": "Esta parcela já tem uma cultura atual.",
       "already_declared": "Esta plantação já está declarada.",
-      "overlaps_recorded_crop": "O dia de plantação não é posterior às culturas já registadas nesta parcela.",
+      "overlaps_recorded_crop": "O dia de plantação não é posterior às culturas já registadas nesta parcela. Indique um dia de plantação posterior.",
       "invalid_variety": "A variedade é demasiado longa (no máximo 100 caracteres)."
     }
   },
