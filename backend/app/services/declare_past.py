@@ -23,6 +23,7 @@ from datetime import date
 # Exact shape FaST reads a cycle species with; a code it would drop must not be written.
 EPPO = re.compile(r"^[A-Z0-9]{5,6}$")
 MIN_CAMPAIGN = 1900
+PARCEL_PREFIX = "urn:ngsi-ld:AgriParcel:"
 DECLARED_CAMPAIGN_ATTR = "nkz:declaredCampaign"
 
 
@@ -51,7 +52,9 @@ def parse_campaign(raw, today: date) -> int:
 
 
 def declared_crop_id(tenant_id: str, parcel_urn: str, campaign: int) -> str:
-    return f"urn:ngsi-ld:AgriCrop:{tenant_id}:{parcel_urn.split(':')[-1]}:declared-{campaign}"
+    # The whole local part: it may contain ':' and two parcels must never share an id.
+    local = parcel_urn.removeprefix(PARCEL_PREFIX)
+    return f"urn:ngsi-ld:AgriCrop:{tenant_id}:{local}:declared-{campaign}"
 
 
 def build_entity(tenant_id: str, parcel_urn: str, campaign: int, eppo: str) -> dict:

@@ -1,4 +1,5 @@
 """POST/GET /parcels/{id}/declared-crops: declare a past crop (campaign + species, no dates)."""
+import asyncio
 from datetime import date
 
 import httpx
@@ -167,10 +168,7 @@ def test_declared_crop_resolves_as_previous_for_the_sdk(env):
 
 
 def test_reconcile_never_links_a_declared_crop(env):
-    class W(FakeOrion):
-        pass
-    orion = W([declared(2025, "TRZAX"), declared(2024, "HORVX")])
-    import asyncio
+    orion = FakeOrion([declared(2025, "TRZAX"), declared(2024, "HORVX")])
     written = asyncio.run(writer.reconcile_parcel(orion, "tenant-a", P, TODAY))
     assert written == [] and orion.appended == []
     assert "hasAgriCrop" not in orion.parcel and "lastPlantedAt" not in orion.parcel
@@ -183,3 +181,16 @@ def test_ids_are_per_parcel_and_campaign():
 def test_five_char_code_with_digit_is_accepted(env):
     assert post({"campaign": 2024, "eppo": "1ABCD"}).status_code == 201
     assert env["orion"].created[0]["species"]["value"] == "1ABCD"
+
+
+def test_parcels_sharing_a_last_segment_get_distinct_ids(env):
+    x, y = "urn:ngsi-ld:AgriParcel:x:p1", "urn:ngsi-ld:AgriParcel:y:p1"
+    assert dp.declared_crop_id("t", x, 2020) != dp.declared_crop_id("t", y, 2020)
+    other = declared(2024, "TRZAX", cid=dp.declared_crop_id("tenant-a", x, 2024))
+    other["hasAgriParcel"] = x
+    env["orion"] = FakeOrion([other])
+    r = TestClient(app).post("/api/field-operations/parcels/y:p1/declared-crops", headers=H,
+                             json={"campaign": 2024, "eppo": "HORVX"})
+    assert r.status_code == 201
+    assert r.json()["crop_id"] == "urn:ngsi-ld:AgriCrop:tenant-a:y:p1:declared-2024"
+    assert env["orion"].updated == [] and len(env["orion"].created) == 1
