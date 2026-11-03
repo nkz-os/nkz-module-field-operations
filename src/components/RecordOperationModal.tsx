@@ -34,11 +34,11 @@ export interface RecordFormViewProps {
 }
 
 export function targetLabel(t: (k: string, o?: Record<string, unknown>) => string, target: RecordTarget,
-  names: Record<string, string>): string {
+  names: Record<string, string>, withHarvest = true): string {
   const crop = cropLabel(target, names);
   const role = target.role && target.role !== 'main_crop' ? ` (${t(`record.role.${target.role}`)})` : '';
   const campaign = target.campaign != null ? ` · ${t('record.campaign', { campaign: target.campaign })}` : '';
-  const harvest = target.harvestCampaign ? ` · ${t('record.harvestCampaign', { campaign: target.harvestCampaign })}` : '';
+  const harvest = withHarvest && target.harvestCampaign ? ` · ${t('record.harvestCampaign', { campaign: target.harvestCampaign })}` : '';
   return `${target.parcelName} — ${crop}${role}${campaign}${harvest}`;
 }
 
@@ -192,9 +192,10 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
         return;
       }
       const target = targets.find((x) => x.cropId === data.crop_id);
-      onRecorded(t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', {
-        crop: target ? targetLabel(t, target, names) : (data.species ?? ''),
-      }));
+      const crop = target ? targetLabel(t, target, names, false) : (data.species ?? '');
+      onRecorded(kind === 'harvesting' && data.harvest_campaign
+        ? t('record.successHarvestCampaign', { crop, campaign: data.harvest_campaign })
+        : t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', { crop }));
     } catch {
       setError(t('record.error.generic'));
     } finally {

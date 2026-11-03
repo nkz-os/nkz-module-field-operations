@@ -127,6 +127,10 @@ describe('perennial records', () => {
     const t = targetsFor([parcel([cy({ harvest_campaigns: [{ label: 2025, display: '2025/26' }, { label: 2026, display: '2026/27' }] })])], 'harvesting');
     expect(t[0].harvestCampaign).toBe('2026/27');
   });
+  it('a perennial target carries no planting-year campaign', () => {
+    const t = targetsFor([parcel([cy({ lifecycle: 'perennial', campaign_label: 2000 })])], 'harvesting');
+    expect(t[0].campaign).toBeNull();
+  });
   it('plantationParcels hides parcels with a main crop or unreadable', () => {
     const ps = [parcel([cy({})]), parcel([], { id: 'p2', name: null }), parcel([], { id: 'p3', readable: false })];
     expect(plantationParcels(ps)).toEqual([{ id: 'p2', name: 'p2' }]);

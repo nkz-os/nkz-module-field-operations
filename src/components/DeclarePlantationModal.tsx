@@ -18,7 +18,6 @@ export interface DeclarePlantationViewProps {
   loadError: boolean;
   parcels: { id: string; name: string }[];
   form: PlantationForm;
-  lang: string;
   today: string;
   saving: boolean;
   error: string | null;
@@ -26,6 +25,13 @@ export interface DeclarePlantationViewProps {
   onSubmit: () => void;
   onClose: () => void;
   onRetry: () => void;
+}
+
+/** The day must fall in the planting year (and not after today); no bounds until the year is a full year. */
+export function dateBounds(year: string, today: string): { min?: string; max: string } {
+  if (!/^\d{4}$/.test(year)) return { max: today };
+  const end = `${year}-12-31`;
+  return { min: `${year}-01-01`, max: end < today ? end : today };
 }
 
 /** The declare-plantation form, without data fetching (rendered by the container below and by tests). */
@@ -60,7 +66,7 @@ export function DeclarePlantationView(p: DeclarePlantationViewProps) {
           <span className={LABEL}>{t('plantation.species')}</span>
           <select id="plantation-species" value={p.form.eppo} onChange={set('eppo')} className={INPUT}>
             <option value="">—</option>
-            {woodyOptions(p.lang).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {woodyOptions(t).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
         <label className="block">
@@ -70,7 +76,7 @@ export function DeclarePlantationView(p: DeclarePlantationViewProps) {
         </label>
         <label className="block">
           <span className={LABEL}>{t('plantation.day')}</span>
-          <input id="plantation-date" type="date" max={p.today} value={p.form.date} onChange={set('date')} className={INPUT} />
+          <input id="plantation-date" type="date" {...dateBounds(p.form.year, p.today)} value={p.form.date} onChange={set('date')} className={INPUT} />
         </label>
         <label className="block">
           <span className={LABEL}>{t('plantation.variety')}</span>
@@ -112,7 +118,7 @@ interface Props {
 }
 
 const DeclarePlantationModal: React.FC<Props> = ({ onClose, onDeclared }) => {
-  const { t, i18n } = useTranslation('field-operations');
+  const { t } = useTranslation('field-operations');
   const [parcels, setParcels] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -160,7 +166,7 @@ const DeclarePlantationModal: React.FC<Props> = ({ onClose, onDeclared }) => {
 
   return (
     <DeclarePlantationView loading={loading} loadError={loadError} parcels={parcels} form={form}
-      lang={i18n?.language?.slice(0, 2) || 'es'} today={localToday()} saving={saving} error={error}
+      today={localToday()} saving={saving} error={error}
       onChange={setForm} onSubmit={() => void submit()} onClose={onClose} onRetry={() => void load()} />
   );
 };

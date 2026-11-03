@@ -173,11 +173,12 @@ const en = {
     "campaign": "season {{campaign}}",
     "successSowing": "Sowing recorded: {{crop}}",
     "successHarvest": "Harvest recorded: {{crop}}",
+    "successHarvestCampaign": "Harvest recorded: {{crop}} · harvest campaign {{campaign}}",
     "successUprooting": "Uprooting recorded: {{crop}}",
     "uproot": "Record uprooting",
     "titleUprooting": "Record an uprooting that happened",
     "noTargetsUprooting": "No perennial plantation is waiting to be uprooted.",
-    "harvestCampaign": "Harvest campaign {{campaign}}",
+    "harvestCampaign": "last harvest campaign {{campaign}}",
     "role": {
       "cover_crop": "cover crop",
       "catch_crop": "catch crop",
@@ -214,13 +215,27 @@ const en = {
     "submit": "Declare",
     "success": "Plantation declared.",
     "noParcels": "No parcel is free to declare a plantation: they all have a current crop.",
+    "speciesNames": {
+      "OLVEU": "Olive",
+      "VITVI": "Grapevine",
+      "PRNDU": "Almond",
+      "PIAVE": "Pistachio",
+      "MABSD": "Apple",
+      "PYUCO": "Pear",
+      "PRNPS": "Peach",
+      "PRNAR": "Apricot",
+      "PRNDO": "Plum",
+      "PRNAV": "Cherry"
+    },
     "errors": {
       "invalid_species": "Choose one of the listed species.",
       "invalid_year": "The planting year is not valid.",
       "future_date": "The date cannot be in the future.",
       "invalid_date": "The date is not valid.",
       "parcel_has_current_crop": "This parcel already has a current crop.",
-      "already_declared": "This plantation is already declared."
+      "already_declared": "This plantation is already declared.",
+      "overlaps_recorded_crop": "The planting day is not after the crops already recorded on this parcel.",
+      "invalid_variety": "The variety is too long (100 characters at most)."
     }
   },
 };
@@ -396,11 +411,12 @@ const es = {
     "campaign": "campaña {{campaign}}",
     "successSowing": "Siembra registrada: {{crop}}",
     "successHarvest": "Cosecha registrada: {{crop}}",
+    "successHarvestCampaign": "Cosecha registrada: {{crop}} · campaña de cosecha {{campaign}}",
     "successUprooting": "Arranque registrado: {{crop}}",
     "uproot": "Registrar arranque",
     "titleUprooting": "Registrar un arranque hecho",
     "noTargetsUprooting": "No hay plantaciones plurianuales pendientes de arranque.",
-    "harvestCampaign": "Campaña de cosecha {{campaign}}",
+    "harvestCampaign": "última campaña de cosecha {{campaign}}",
     "role": {
       "cover_crop": "cubierta",
       "catch_crop": "cultivo intermedio",
@@ -437,13 +453,27 @@ const es = {
     "submit": "Declarar",
     "success": "Plantación declarada.",
     "noParcels": "No hay ninguna parcela libre para declarar una plantación: todas tienen un cultivo actual.",
+    "speciesNames": {
+      "OLVEU": "Olivo",
+      "VITVI": "Vid",
+      "PRNDU": "Almendro",
+      "PIAVE": "Pistachero",
+      "MABSD": "Manzano",
+      "PYUCO": "Peral",
+      "PRNPS": "Melocotonero",
+      "PRNAR": "Albaricoquero",
+      "PRNDO": "Ciruelo",
+      "PRNAV": "Cerezo"
+    },
     "errors": {
       "invalid_species": "Elige una de las especies de la lista.",
       "invalid_year": "El año de plantación no es válido.",
       "future_date": "La fecha no puede ser futura.",
       "invalid_date": "La fecha no es válida.",
       "parcel_has_current_crop": "Esta parcela ya tiene un cultivo actual.",
-      "already_declared": "Esta plantación ya está declarada."
+      "already_declared": "Esta plantación ya está declarada.",
+      "overlaps_recorded_crop": "El día de plantación no es posterior a los cultivos ya registrados en esta parcela.",
+      "invalid_variety": "La variedad es demasiado larga (100 caracteres como máximo)."
     }
   },
 };
@@ -478,11 +508,12 @@ const ca = {
     "campaign": "campanya {{campaign}}",
     "successSowing": "Sembra registrada: {{crop}}",
     "successHarvest": "Collita registrada: {{crop}}",
+    "successHarvestCampaign": "Collita registrada: {{crop}} · campanya de collita {{campaign}}",
     "successUprooting": "Arrencada registrada: {{crop}}",
     "uproot": "Registrar arrencada",
     "titleUprooting": "Registrar una arrencada feta",
     "noTargetsUprooting": "No hi ha plantacions plurianuals pendents d'arrencada.",
-    "harvestCampaign": "Campanya de collita {{campaign}}",
+    "harvestCampaign": "última campanya de collita {{campaign}}",
     "role": {
       "cover_crop": "coberta",
       "catch_crop": "cultiu intermedi",
@@ -519,13 +550,27 @@ const ca = {
     "submit": "Declarar",
     "success": "Plantació declarada.",
     "noParcels": "No hi ha cap parcel·la lliure per declarar una plantació: totes tenen un cultiu actual.",
+    "speciesNames": {
+      "OLVEU": "Olivera",
+      "VITVI": "Vinya",
+      "PRNDU": "Ametller",
+      "PIAVE": "Pistatxer",
+      "MABSD": "Pomera",
+      "PYUCO": "Perera",
+      "PRNPS": "Presseguer",
+      "PRNAR": "Albercoquer",
+      "PRNDO": "Prunera",
+      "PRNAV": "Cirerer"
+    },
     "errors": {
       "invalid_species": "Tria una de les espècies de la llista.",
       "invalid_year": "L'any de plantació no és vàlid.",
       "future_date": "La data no pot ser futura.",
       "invalid_date": "La data no és vàlida.",
       "parcel_has_current_crop": "Aquesta parcel·la ja té un cultiu actual.",
-      "already_declared": "Aquesta plantació ja està declarada."
+      "already_declared": "Aquesta plantació ja està declarada.",
+      "overlaps_recorded_crop": "El dia de plantació no és posterior als cultius ja registrats en aquesta parcel·la.",
+      "invalid_variety": "La varietat és massa llarga (100 caràcters com a màxim)."
     }
   },
 };
@@ -560,11 +605,12 @@ const eu = {
     "campaign": "{{campaign}} kanpaina",
     "successSowing": "Ereitea erregistratuta: {{crop}}",
     "successHarvest": "Uzta erregistratuta: {{crop}}",
+    "successHarvestCampaign": "Uzta erregistratuta: {{crop}} · {{campaign}} uzta-kanpaina",
     "successUprooting": "Errotik ateratzea erregistratuta: {{crop}}",
     "uproot": "Erregistratu errotik atera izana",
     "titleUprooting": "Erregistratu egindako errotik ateratzea",
     "noTargetsUprooting": "Ez dago errotik ateratzeko zain dagoen laborantza iraunkorrik.",
-    "harvestCampaign": "{{campaign}} uzta-kanpaina",
+    "harvestCampaign": "azken uzta-kanpaina: {{campaign}}",
     "role": {
       "cover_crop": "estalkia",
       "catch_crop": "tarteko laborea",
@@ -601,13 +647,27 @@ const eu = {
     "submit": "Deklaratu",
     "success": "Landaketa deklaratuta.",
     "noParcels": "Ez dago landaketa bat deklaratzeko lursail librerik: guztiek dute egungo laborantza.",
+    "speciesNames": {
+      "OLVEU": "Olibondoa",
+      "VITVI": "Mahatsondoa",
+      "PRNDU": "Almendrondoa",
+      "PIAVE": "Pistatxondoa",
+      "MABSD": "Sagarrondoa",
+      "PYUCO": "Udareondoa",
+      "PRNPS": "Muxikondoa",
+      "PRNAR": "Abrikotondoa",
+      "PRNDO": "Aranondoa",
+      "PRNAV": "Gerezondoa"
+    },
     "errors": {
       "invalid_species": "Aukeratu zerrendako espezieetako bat.",
       "invalid_year": "Landatze-urtea ez da baliozkoa.",
       "future_date": "Data ezin da etorkizunekoa izan.",
       "invalid_date": "Data ez da baliozkoa.",
       "parcel_has_current_crop": "Lursail honek egungo laborantza bat du jada.",
-      "already_declared": "Landaketa hau deklaratuta dago jada."
+      "already_declared": "Landaketa hau deklaratuta dago jada.",
+      "overlaps_recorded_crop": "Landatze-eguna ez da partzelan jada erregistratutako laboreen ondorengoa.",
+      "invalid_variety": "Barietatea luzeegia da (gehienez 100 karaktere)."
     }
   },
 };
@@ -642,11 +702,12 @@ const fr = {
     "campaign": "campagne {{campaign}}",
     "successSowing": "Semis enregistré : {{crop}}",
     "successHarvest": "Récolte enregistrée : {{crop}}",
+    "successHarvestCampaign": "Récolte enregistrée : {{crop}} · campagne de récolte {{campaign}}",
     "successUprooting": "Arrachage enregistré : {{crop}}",
     "uproot": "Enregistrer un arrachage",
     "titleUprooting": "Enregistrer un arrachage effectué",
     "noTargetsUprooting": "Aucune plantation pérenne n'attend d'être arrachée.",
-    "harvestCampaign": "Campagne de récolte {{campaign}}",
+    "harvestCampaign": "dernière campagne de récolte {{campaign}}",
     "role": {
       "cover_crop": "couvert",
       "catch_crop": "culture intermédiaire",
@@ -683,13 +744,27 @@ const fr = {
     "submit": "Déclarer",
     "success": "Plantation déclarée.",
     "noParcels": "Aucune parcelle n'est libre pour déclarer une plantation : toutes ont une culture en cours.",
+    "speciesNames": {
+      "OLVEU": "Olivier",
+      "VITVI": "Vigne",
+      "PRNDU": "Amandier",
+      "PIAVE": "Pistachier",
+      "MABSD": "Pommier",
+      "PYUCO": "Poirier",
+      "PRNPS": "Pêcher",
+      "PRNAR": "Abricotier",
+      "PRNDO": "Prunier",
+      "PRNAV": "Cerisier"
+    },
     "errors": {
       "invalid_species": "Choisissez l'une des espèces de la liste.",
       "invalid_year": "L'année de plantation n'est pas valide.",
       "future_date": "La date ne peut pas être future.",
       "invalid_date": "La date n'est pas valide.",
       "parcel_has_current_crop": "Cette parcelle a déjà une culture en cours.",
-      "already_declared": "Cette plantation est déjà déclarée."
+      "already_declared": "Cette plantation est déjà déclarée.",
+      "overlaps_recorded_crop": "Le jour de plantation n'est pas postérieur aux cultures déjà enregistrées sur cette parcelle.",
+      "invalid_variety": "La variété est trop longue (100 caractères au maximum)."
     }
   },
 };
@@ -724,11 +799,12 @@ const pt = {
     "campaign": "campanha {{campaign}}",
     "successSowing": "Sementeira registada: {{crop}}",
     "successHarvest": "Colheita registada: {{crop}}",
+    "successHarvestCampaign": "Colheita registada: {{crop}} · campanha de colheita {{campaign}}",
     "successUprooting": "Arranque registado: {{crop}}",
     "uproot": "Registar arranque",
     "titleUprooting": "Registar um arranque feito",
     "noTargetsUprooting": "Não há plantações plurianuais à espera de arranque.",
-    "harvestCampaign": "Campanha de colheita {{campaign}}",
+    "harvestCampaign": "última campanha de colheita {{campaign}}",
     "role": {
       "cover_crop": "cobertura",
       "catch_crop": "cultura intercalar",
@@ -765,13 +841,27 @@ const pt = {
     "submit": "Declarar",
     "success": "Plantação declarada.",
     "noParcels": "Nenhuma parcela está livre para declarar uma plantação: todas têm uma cultura atual.",
+    "speciesNames": {
+      "OLVEU": "Oliveira",
+      "VITVI": "Videira",
+      "PRNDU": "Amendoeira",
+      "PIAVE": "Pistacheiro",
+      "MABSD": "Macieira",
+      "PYUCO": "Pereira",
+      "PRNPS": "Pessegueiro",
+      "PRNAR": "Damasqueiro",
+      "PRNDO": "Ameixoeira",
+      "PRNAV": "Cerejeira"
+    },
     "errors": {
       "invalid_species": "Escolha uma das espécies da lista.",
       "invalid_year": "O ano de plantação não é válido.",
       "future_date": "A data não pode ser futura.",
       "invalid_date": "A data não é válida.",
       "parcel_has_current_crop": "Esta parcela já tem uma cultura atual.",
-      "already_declared": "Esta plantação já está declarada."
+      "already_declared": "Esta plantação já está declarada.",
+      "overlaps_recorded_crop": "O dia de plantação não é posterior às culturas já registadas nesta parcela.",
+      "invalid_variety": "A variedade é demasiado longa (no máximo 100 caracteres)."
     }
   },
 };

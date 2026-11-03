@@ -11,6 +11,7 @@ export interface CycleView {
   crop_id: string;
   species: string | null;
   role: string;
+  lifecycle?: string | null;
   variety: string | null;
   campaign_label: number | null;
   start: Boundary;
@@ -66,7 +67,7 @@ export function targetsFor(parcels: ParcelView[], kind: RecordKind): RecordTarge
       const campaigns = c.harvest_campaigns ?? [];
       out.push({
         parcelId: p.id, parcelName: p.name ?? p.id, cropId: c.crop_id, species: c.species, role: c.role,
-        variety: c.variety, campaign: c.campaign_label, plannedStart: c.start.date, name: c.name ?? null,
+        variety: c.variety, campaign: c.lifecycle === 'perennial' ? null : c.campaign_label, plannedStart: c.start.date, name: c.name ?? null,
         harvestCampaign: kind === 'harvesting' && campaigns.length ? campaigns[campaigns.length - 1].display : null,
       });
     }
@@ -167,6 +168,7 @@ export function plantationParcels(parcels: ParcelView[]): { id: string; name: st
 
 const PLANTATION_ERRORS = new Set([
   'invalid_species', 'invalid_year', 'future_date', 'invalid_date', 'parcel_has_current_crop', 'already_declared',
+  'overlaps_recorded_crop', 'invalid_variety',
 ]);
 
 /** i18n key for a plantation error code; store/parcel codes reuse the record ones. */
