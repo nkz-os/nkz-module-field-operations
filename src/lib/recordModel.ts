@@ -1,6 +1,6 @@
 /** Recording a sowing or a harvest that already happened (pure helpers for the record form). */
 
-export type RecordKind = 'sowing' | 'harvesting';
+export type RecordKind = 'sowing' | 'harvesting' | 'uprooting';
 
 export interface Boundary {
   date: string | null;
@@ -11,12 +11,16 @@ export interface CycleView {
   crop_id: string;
   species: string | null;
   role: string;
+  lifecycle?: string | null;
   variety: string | null;
   campaign_label: number | null;
   start: Boundary;
   end: Boundary;
   can_sow: boolean;
   can_harvest: boolean;
+  can_uproot?: boolean;
+  /** Harvest campaigns of a perennial stand, oldest first; `display` is e.g. "2026/27". */
+  harvest_campaigns?: { label: number; display: string }[];
   /** The crop's own name, when the entity carries one. */
   name?: string | null;
 }
@@ -39,6 +43,8 @@ export interface RecordTarget {
   campaign: number | null;
   plannedStart: string | null;
   name: string | null;
+  /** Display label of the latest harvest campaign (perennials), e.g. "2026/27". */
+  harvestCampaign: string | null;
 }
 
 export interface RecordForm {
@@ -56,10 +62,13 @@ export function targetsFor(parcels: ParcelView[], kind: RecordKind): RecordTarge
   const out: RecordTarget[] = [];
   for (const p of parcels) {
     for (const c of p.cycles) {
-      if (kind === 'sowing' ? !c.can_sow : !c.can_harvest) continue;
+      const ok = kind === 'sowing' ? c.can_sow : kind === 'uprooting' ? c.can_uproot === true : c.can_harvest;
+      if (!ok) continue;
+      const campaigns = c.harvest_campaigns ?? [];
       out.push({
         parcelId: p.id, parcelName: p.name ?? p.id, cropId: c.crop_id, species: c.species, role: c.role,
-        variety: c.variety, campaign: c.campaign_label, plannedStart: c.start.date, name: c.name ?? null,
+        variety: c.variety, campaign: c.lifecycle === 'perennial' ? null : c.campaign_label, plannedStart: c.start.date, name: c.name ?? null,
+        harvestCampaign: kind === 'harvesting' && campaigns.length ? campaigns[campaigns.length - 1].display : null,
       });
     }
   }
@@ -96,6 +105,7 @@ function positive(raw: string): boolean {
 /** The form can be sent: a crop, a date, and the positive numbers that kind requires. */
 export function canSubmit(kind: RecordKind, f: RecordForm): boolean {
   if (!f.cropId || !f.date) return false;
+  if (kind === 'uprooting') return true;
   return kind === 'sowing' ? positive(f.seedingRate) : positive(f.harvestedWeight);
 }
 
@@ -109,7 +119,7 @@ export function buildRecordBody(kind: RecordKind, f: RecordForm): Record<string,
     const rate = num(f.seedingRate);
     if (rate !== undefined) body.seedingRate = rate;
     if (f.sowingMethod) body.sowingMethod = f.sowingMethod;
-  } else {
+  } else if (kind === 'harvesting') {
     const weight = num(f.harvestedWeight);
     if (weight !== undefined) body.harvestedWeight = weight;
   }
@@ -117,9 +127,9 @@ export function buildRecordBody(kind: RecordKind, f: RecordForm): Record<string,
 }
 
 const KNOWN_ERRORS = new Set([
-  'store_unavailable', 'invalid_parcel', 'invalid_number', 'perennial_harvest_unsupported',
+  'store_unavailable', 'invalid_parcel', 'invalid_number',
   'no_planned_crop', 'no_crop_to_close', 'not_sown', 'already_recorded', 'future_date',
-  'date_outside_crop_window', 'missing_fields', 'invalid_date', 'parcel_not_found', 'crop_data_unavailable',
+  'date_outside_crop_window', 'not_perennial', 'already_closed', 'date_before_last_harvest', 'missing_fields', 'invalid_date', 'parcel_not_found', 'crop_data_unavailable',
 ]);
 
 /** i18n key for a server error code. */
@@ -147,4 +157,42 @@ export function cropNamesFromFarm(farm: unknown, lang: string): Record<string, s
     }
   }
   return out;
+}
+
+/** Parcels that can take a declared plantation: readable and with no current main crop listed. */
+export function plantationParcels(parcels: ParcelView[]): { id: string; name: string }[] {
+  return parcels
+    .filter((p) => p.readable && !p.cycles.some((c) => c.role === 'main_crop'))
+    .map((p) => ({ id: p.id, name: p.name ?? p.id }));
+}
+
+const PLANTATION_ERRORS = new Set([
+  'invalid_species', 'invalid_year', 'future_date', 'invalid_date', 'parcel_has_current_crop', 'already_declared',
+  'overlaps_recorded_crop', 'invalid_variety',
+]);
+
+/** i18n key for a plantation error code; store/parcel codes reuse the record ones. */
+export function plantationErrorKey(code: string | undefined): string {
+  if (code && PLANTATION_ERRORS.has(code)) return `plantation.errors.${code}`;
+  return errorKey(code);
+}
+
+export interface PlantationForm {
+  parcelId: string;
+  eppo: string;
+  year: string;
+  date: string;
+  variety: string;
+}
+
+export function canDeclare(f: PlantationForm): boolean {
+  return !!f.parcelId && !!f.eppo && /^\d{4}$/.test(f.year.trim());
+}
+
+/** POST /parcels/{id}/plantations body: year as a number, optional fields only when filled. */
+export function buildPlantationBody(f: PlantationForm): Record<string, unknown> {
+  const body: Record<string, unknown> = { eppo: f.eppo, planting_year: Number(f.year.trim()) };
+  if (f.date) body.planting_date = f.date;
+  if (f.variety.trim()) body.variety = f.variety.trim();
+  return body;
 }

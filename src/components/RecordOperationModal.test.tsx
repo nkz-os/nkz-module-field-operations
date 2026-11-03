@@ -11,7 +11,7 @@ import { RecordFormView, localToday, type RecordFormViewProps } from './RecordOp
 import type { RecordTarget } from '../lib/recordModel';
 
 const target: RecordTarget = { parcelId: 'urn:ngsi-ld:AgriParcel:b', parcelName: 'Soto Alto', cropId: 'c1',
-  species: 'TRZAX', role: 'main_crop', variety: 'KWS KEITUM', campaign: 2027, plannedStart: '2026-11-01', name: null };
+  species: 'TRZAX', role: 'main_crop', variety: 'KWS KEITUM', campaign: 2027, plannedStart: '2026-11-01', name: null, harvestCampaign: null };
 
 const view = (over: Partial<RecordFormViewProps>) => renderToStaticMarkup(
   <RecordFormView kind="sowing" loading={false} loadError={false} targets={[target]} names={{ TRZAX: 'trigo' }}
@@ -33,6 +33,17 @@ describe('RecordFormView', () => {
     expect(h).toContain('record.titleHarvest');
     expect(h).toContain('record.harvestedWeight');
     expect(h).not.toContain('record.seedingRate');
+  });
+  it('offers uprooting only for perennial targets', () => {
+    const h = view({ kind: 'uprooting', targets: [{ ...target, species: 'OLVEU', name: null }] });
+    expect(h).toContain('record.titleUprooting');
+    expect(h).not.toContain('record.harvestedWeight');
+    expect(h).not.toContain('record.seedingRate');
+    expect(view({ kind: 'uprooting', targets: [] })).toContain('record.noTargetsUprooting');
+  });
+  it('shows harvest campaign label', () => {
+    const h = view({ kind: 'harvesting', targets: [{ ...target, harvestCampaign: '2026/27' }] });
+    expect(h).toContain('record.harvestCampaign:{&quot;campaign&quot;:&quot;2026/27&quot;}');
   });
   it('no crop to sow says where to plan it', () => {
     expect(view({ targets: [] })).toContain('record.noTargetsSowing');
