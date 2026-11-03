@@ -80,13 +80,14 @@ def species_patch(eppo: str) -> dict:
 def dated_conflict(cycles, campaign: int, own_id: str) -> str | None:
     """Id of a main-crop cycle in ``campaign`` whose start or end is a fact: facts beat declarations.
 
-    A plan that was never sown (dates only planned) is not a fact and does not block."""
+    A plan that was never sown (dates only planned) is not a fact and does not block.
+    A perennial blocks every campaign it is alive in, not only its planting year."""
     for cy in cycles:
         if cy.crop_id == own_id or cy.role != "main_crop":
             continue
         fact = ((cy.start.date and cy.start.provenance in _FACTS)
                 or (cy.end.date and cy.end.provenance in _FACTS))
-        if fact and cy.campaign_label == campaign:
+        if fact and cy.in_campaign(campaign):
             return cy.crop_id
     return None
 

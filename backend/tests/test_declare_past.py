@@ -139,6 +139,23 @@ def test_a_dated_cycle_of_another_campaign_does_not_block(env):
     assert post({"campaign": 2024, "eppo": "TRZAX"}).status_code == 201
 
 
+OLIVE = {"id": "urn:ngsi-ld:AgriCrop:tenant-a:p1:plantation-2000", "type": "AgriCrop", "hasAgriParcel": P,
+         "status": "active", "cropRole": "main_crop", "species": "OLVEU", "cropLifecycle": "perennial",
+         "plantingDate": "2000-01-01", "plantingDateSource": "manual"}
+
+
+def test_a_living_perennial_blocks_a_later_campaign(env):
+    env["orion"] = FakeOrion([OLIVE])
+    r = post({"campaign": 2024, "eppo": "TRZAX"})
+    assert r.status_code == 409 and r.json()["detail"]["crop_id"] == OLIVE["id"]
+    assert env["orion"].created == []
+
+
+def test_a_perennial_does_not_block_a_campaign_before_its_planting(env):
+    env["orion"] = FakeOrion([OLIVE])
+    assert post({"campaign": 1998, "eppo": "TRZAX"}).status_code == 201
+
+
 def test_redeclaring_updates_species_on_the_same_entity(env):
     env["orion"] = FakeOrion([declared(2024, "TRZAX")])
     r = post({"campaign": 2024, "eppo": "HORVX"})
