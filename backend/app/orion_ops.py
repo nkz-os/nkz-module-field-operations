@@ -64,6 +64,9 @@ def create_operation(
     if extra_attrs.get("implement_id"):
         entity["usesImplement"] = {"type": "Relationship", "object": extra_attrs.pop("implement_id")}
 
+    if extra_attrs.get("crop_id"):
+        entity["hasAgriCrop"] = {"type": "Relationship", "object": extra_attrs.pop("crop_id")}
+
     # Handle known attributes with specific NGSI-LD typing
     if extra_attrs.get("planned_date"):
         entity["plannedDate"] = {"type": "Property", "value": {"@type": "DateTime", "@value": extra_attrs.pop("planned_date")}}

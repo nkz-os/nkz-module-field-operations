@@ -127,6 +127,8 @@ async def record_operation(request: Request, body: dict):
         stored_type = op_type
         if op_type == "uprooting":
             stored_type, attrs["tillageType"] = "tillage", UPROOTING
+            # The same stand the matcher probed: the shared rule must resolve the stored op identically.
+            attrs["crop_id"] = match.crop_id
         if op_type == "sowing":
             attrs["cropType"] = match.species
             attrs["variety"] = body.get("variety") or match.variety

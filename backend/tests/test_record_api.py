@@ -203,6 +203,33 @@ def test_record_uprooting_stored_as_tillage(env):
     assert r.status_code == 201, r.text
     kw = env["created"][0][1]
     assert kw["operation_type"] == "tillage" and kw["tillageType"] == "uprooting"
+    assert kw["crop_id"] == OLIVE["id"]
+
+
+def test_uprooting_with_closed_and_open_stand_links_the_open_one(env):
+    old = dict(OLIVE, id="urn:ngsi-ld:AgriCrop:acme:p1:old", plantingDate="1990-03-01", species="VITVI")
+    done = {"id": "urn:ngsi-ld:AgriParcelOperation:acme:u0", "hasAgriParcel": P, "operationType": "tillage",
+            "tillageType": "uprooting", "status": "completed", "endedAt": "2020-01-10", "hasAgriCrop": old["id"]}
+    env["orion"] = FakeOrion([old, OLIVE], [done])
+    r = _post({"parcel_id": P, "operation_type": "uprooting", "date": "2026-11-10"})
+    assert r.status_code == 201, r.text
+    assert env["created"][0][1]["crop_id"] == OLIVE["id"]
+
+
+def test_create_operation_writes_has_agri_crop_relationship(monkeypatch):
+    from app import orion_ops
+    sent = []
+
+    class C:
+        context_url = "ctx"
+
+        def create_entity(self, e):
+            sent.append(e)
+
+    monkeypatch.setattr(orion_ops, "_get_client", lambda t: C())
+    orion_ops.create_operation("acme", parcel_id=P, operation_type="tillage", work_order="w", operator="u",
+                               crop_id="urn:ngsi-ld:AgriCrop:acme:p1:olive", tillageType="uprooting")
+    assert sent[0]["hasAgriCrop"] == {"type": "Relationship", "object": "urn:ngsi-ld:AgriCrop:acme:p1:olive"}
 
 
 def test_record_uprooting_on_annual_409(env):
