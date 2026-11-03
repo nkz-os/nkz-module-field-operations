@@ -38,13 +38,15 @@ export function targetLabel(t: (k: string, o?: Record<string, unknown>) => strin
   const crop = cropLabel(target, names);
   const role = target.role && target.role !== 'main_crop' ? ` (${t(`record.role.${target.role}`)})` : '';
   const campaign = target.campaign != null ? ` · ${t('record.campaign', { campaign: target.campaign })}` : '';
-  return `${target.parcelName} — ${crop}${role}${campaign}`;
+  const harvest = target.harvestCampaign ? ` · ${t('record.harvestCampaign', { campaign: target.harvestCampaign })}` : '';
+  return `${target.parcelName} — ${crop}${role}${campaign}${harvest}`;
 }
 
 /** The record form, without data fetching (rendered by the container below and by tests). */
 export function RecordFormView(p: RecordFormViewProps) {
   const { t } = useTranslation('field-operations');
   const sowing = p.kind === 'sowing';
+  const uprooting = p.kind === 'uprooting';
   const chosen = p.targets.find((x) => x.cropId === p.form.cropId) ?? null;
   const pick = (cropId: string) => p.onChange(selectTarget(p.form, p.targets, cropId));
   const set = (field: keyof RecordForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -61,7 +63,7 @@ export function RecordFormView(p: RecordFormViewProps) {
       </div>
     );
   } else if (p.targets.length === 0) {
-    body = <p className="text-sm text-nkz-text-muted">{t(sowing ? 'record.noTargetsSowing' : 'record.noTargetsHarvest')}</p>;
+    body = <p className="text-sm text-nkz-text-muted">{t(sowing ? 'record.noTargetsSowing' : uprooting ? 'record.noTargetsUprooting' : 'record.noTargetsHarvest')}</p>;
   } else {
     body = (
       <div className="space-y-3">
@@ -99,7 +101,7 @@ export function RecordFormView(p: RecordFormViewProps) {
               </select>
             </label>
           </>
-        ) : (
+        ) : uprooting ? null : (
           <label className="block">
             <span className={LABEL}>{t('record.harvestedWeight')}</span>
             <input id="record-harvested-weight" type="text" inputMode="decimal" value={p.form.harvestedWeight}
@@ -117,7 +119,7 @@ export function RecordFormView(p: RecordFormViewProps) {
       <div className="relative bg-nkz-surface rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-nkz-border">
-          <h2 className="text-nkz-text-primary font-bold text-base">{t(sowing ? 'record.titleSowing' : 'record.titleHarvest')}</h2>
+          <h2 className="text-nkz-text-primary font-bold text-base">{t(sowing ? 'record.titleSowing' : uprooting ? 'record.titleUprooting' : 'record.titleHarvest')}</h2>
           <button type="button" onClick={p.onClose} className="text-nkz-text-muted hover:text-nkz-text-primary text-xl leading-none"
             aria-label={t('close')}>×</button>
         </div>
@@ -190,7 +192,7 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
         return;
       }
       const target = targets.find((x) => x.cropId === data.crop_id);
-      onRecorded(t(kind === 'sowing' ? 'record.successSowing' : 'record.successHarvest', {
+      onRecorded(t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', {
         crop: target ? targetLabel(t, target, names) : (data.species ?? ''),
       }));
     } catch {

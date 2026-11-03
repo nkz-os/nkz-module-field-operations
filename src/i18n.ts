@@ -173,6 +173,11 @@ const en = {
     "campaign": "season {{campaign}}",
     "successSowing": "Sowing recorded: {{crop}}",
     "successHarvest": "Harvest recorded: {{crop}}",
+    "successUprooting": "Uprooting recorded: {{crop}}",
+    "uproot": "Record uprooting",
+    "titleUprooting": "Record an uprooting that happened",
+    "noTargetsUprooting": "No perennial plantation is waiting to be uprooted.",
+    "harvestCampaign": "Harvest campaign {{campaign}}",
     "role": {
       "cover_crop": "cover crop",
       "catch_crop": "catch crop",
@@ -182,11 +187,13 @@ const en = {
       "store_unavailable": "It could not be saved right now; try again in a moment.",
       "invalid_parcel": "The parcel is not valid.",
       "invalid_number": "Check the amounts: they must be numbers above zero.",
-      "perennial_harvest_unsupported": "Harvests of perennial crops (vineyard, olive, orchards) are not recorded here yet.",
       "no_planned_crop": "No crop is planned on this parcel for that date: plan it first in Crop planning.",
       "no_crop_to_close": "No crop on this parcel can be harvested on that date.",
       "not_sown": "That crop is not recorded as sown: record its sowing first.",
       "already_recorded": "This crop already has the same record.",
+      "not_perennial": "Only perennial crops (vineyard, olive, orchards) can be uprooted.",
+      "already_closed": "This plantation is already closed.",
+      "date_before_last_harvest": "The date is before the last recorded harvest of this plantation.",
       "future_date": "The date cannot be in the future.",
       "date_outside_crop_window": "That date does not belong to the chosen crop: check the date or the crop.",
       "missing_fields": "Required data is missing ({{detail}}).",
@@ -194,6 +201,26 @@ const en = {
       "parcel_not_found": "The parcel was not found.",
       "crop_data_unavailable": "The parcel's crops could not be read; try again.",
       "generic": "It could not be recorded. Try again."
+    }
+  },
+  plantation: {
+    "declare": "Declare existing plantation",
+    "title": "Declare an existing plantation",
+    "parcel": "Parcel",
+    "species": "Species",
+    "year": "Planting year",
+    "day": "Planting day (optional)",
+    "variety": "Variety (optional)",
+    "submit": "Declare",
+    "success": "Plantation declared.",
+    "noParcels": "No parcel is free to declare a plantation: they all have a current crop.",
+    "errors": {
+      "invalid_species": "Choose one of the listed species.",
+      "invalid_year": "The planting year is not valid.",
+      "future_date": "The date cannot be in the future.",
+      "invalid_date": "The date is not valid.",
+      "parcel_has_current_crop": "This parcel already has a current crop.",
+      "already_declared": "This plantation is already declared."
     }
   },
 };
@@ -369,6 +396,11 @@ const es = {
     "campaign": "campaña {{campaign}}",
     "successSowing": "Siembra registrada: {{crop}}",
     "successHarvest": "Cosecha registrada: {{crop}}",
+    "successUprooting": "Arranque registrado: {{crop}}",
+    "uproot": "Registrar arranque",
+    "titleUprooting": "Registrar un arranque hecho",
+    "noTargetsUprooting": "No hay plantaciones plurianuales pendientes de arranque.",
+    "harvestCampaign": "Campaña de cosecha {{campaign}}",
     "role": {
       "cover_crop": "cubierta",
       "catch_crop": "cultivo intermedio",
@@ -378,11 +410,13 @@ const es = {
       "store_unavailable": "No se ha podido guardar ahora mismo; inténtalo de nuevo en un momento.",
       "invalid_parcel": "La parcela no es válida.",
       "invalid_number": "Revisa las cantidades: deben ser números mayores que cero.",
-      "perennial_harvest_unsupported": "La cosecha de cultivos plurianuales (viña, olivo, frutales) aún no se registra aquí.",
       "no_planned_crop": "No hay ningún cultivo planificado en esta parcela para esa fecha: planifícalo primero en Planificación de cultivos.",
       "no_crop_to_close": "No hay ningún cultivo en esta parcela que cosechar en esa fecha.",
       "not_sown": "Ese cultivo no consta como sembrado: registra antes su siembra.",
       "already_recorded": "Ya hay un registro igual para este cultivo.",
+      "not_perennial": "Solo se pueden arrancar cultivos plurianuales (viña, olivo, frutales).",
+      "already_closed": "Esta plantación ya está cerrada.",
+      "date_before_last_harvest": "La fecha es anterior a la última cosecha registrada de esta plantación.",
       "future_date": "La fecha no puede ser futura.",
       "date_outside_crop_window": "Esa fecha no corresponde al cultivo elegido: revisa la fecha o el cultivo.",
       "missing_fields": "Faltan datos obligatorios ({{detail}}).",
@@ -390,6 +424,26 @@ const es = {
       "parcel_not_found": "No se encuentra la parcela.",
       "crop_data_unavailable": "No se han podido leer los cultivos de la parcela; inténtalo de nuevo.",
       "generic": "No se ha podido registrar. Inténtalo de nuevo."
+    }
+  },
+  plantation: {
+    "declare": "Declarar plantación existente",
+    "title": "Declarar una plantación existente",
+    "parcel": "Parcela",
+    "species": "Especie",
+    "year": "Año de plantación",
+    "day": "Día de plantación (opcional)",
+    "variety": "Variedad (opcional)",
+    "submit": "Declarar",
+    "success": "Plantación declarada.",
+    "noParcels": "No hay ninguna parcela libre para declarar una plantación: todas tienen un cultivo actual.",
+    "errors": {
+      "invalid_species": "Elige una de las especies de la lista.",
+      "invalid_year": "El año de plantación no es válido.",
+      "future_date": "La fecha no puede ser futura.",
+      "invalid_date": "La fecha no es válida.",
+      "parcel_has_current_crop": "Esta parcela ya tiene un cultivo actual.",
+      "already_declared": "Esta plantación ya está declarada."
     }
   },
 };
@@ -424,6 +478,11 @@ const ca = {
     "campaign": "campanya {{campaign}}",
     "successSowing": "Sembra registrada: {{crop}}",
     "successHarvest": "Collita registrada: {{crop}}",
+    "successUprooting": "Arrencada registrada: {{crop}}",
+    "uproot": "Registrar arrencada",
+    "titleUprooting": "Registrar una arrencada feta",
+    "noTargetsUprooting": "No hi ha plantacions plurianuals pendents d'arrencada.",
+    "harvestCampaign": "Campanya de collita {{campaign}}",
     "role": {
       "cover_crop": "coberta",
       "catch_crop": "cultiu intermedi",
@@ -433,11 +492,13 @@ const ca = {
       "store_unavailable": "Ara no s'ha pogut desar; torna-ho a provar d'aquí a un moment.",
       "invalid_parcel": "La parcel·la no és vàlida.",
       "invalid_number": "Revisa les quantitats: han de ser nombres més grans que zero.",
-      "perennial_harvest_unsupported": "La collita de cultius plurianuals (vinya, olivera, fruiters) encara no es registra aquí.",
       "no_planned_crop": "No hi ha cap cultiu planificat en aquesta parcel·la per a aquesta data: planifica'l primer a Planificació de cultius.",
       "no_crop_to_close": "No hi ha cap cultiu en aquesta parcel·la per collir en aquesta data.",
       "not_sown": "Aquest cultiu no consta com a sembrat: registra abans la sembra.",
       "already_recorded": "Ja hi ha un registre igual per a aquest cultiu.",
+      "not_perennial": "Només es poden arrencar cultius plurianuals (vinya, olivera, fruiters).",
+      "already_closed": "Aquesta plantació ja està tancada.",
+      "date_before_last_harvest": "La data és anterior a l'última collita registrada d'aquesta plantació.",
       "future_date": "La data no pot ser futura.",
       "date_outside_crop_window": "Aquesta data no correspon al cultiu triat: revisa la data o el cultiu.",
       "missing_fields": "Falten dades obligatòries ({{detail}}).",
@@ -445,6 +506,26 @@ const ca = {
       "parcel_not_found": "No es troba la parcel·la.",
       "crop_data_unavailable": "No s'han pogut llegir els cultius de la parcel·la; torna-ho a provar.",
       "generic": "No s'ha pogut registrar. Torna-ho a provar."
+    }
+  },
+  plantation: {
+    "declare": "Declarar plantació existent",
+    "title": "Declarar una plantació existent",
+    "parcel": "Parcel·la",
+    "species": "Espècie",
+    "year": "Any de plantació",
+    "day": "Dia de plantació (opcional)",
+    "variety": "Varietat (opcional)",
+    "submit": "Declarar",
+    "success": "Plantació declarada.",
+    "noParcels": "No hi ha cap parcel·la lliure per declarar una plantació: totes tenen un cultiu actual.",
+    "errors": {
+      "invalid_species": "Tria una de les espècies de la llista.",
+      "invalid_year": "L'any de plantació no és vàlid.",
+      "future_date": "La data no pot ser futura.",
+      "invalid_date": "La data no és vàlida.",
+      "parcel_has_current_crop": "Aquesta parcel·la ja té un cultiu actual.",
+      "already_declared": "Aquesta plantació ja està declarada."
     }
   },
 };
@@ -479,6 +560,11 @@ const eu = {
     "campaign": "{{campaign}} kanpaina",
     "successSowing": "Ereitea erregistratuta: {{crop}}",
     "successHarvest": "Uzta erregistratuta: {{crop}}",
+    "successUprooting": "Errotik ateratzea erregistratuta: {{crop}}",
+    "uproot": "Erregistratu errotik atera izana",
+    "titleUprooting": "Erregistratu egindako errotik ateratzea",
+    "noTargetsUprooting": "Ez dago errotik ateratzeko zain dagoen laborantza iraunkorrik.",
+    "harvestCampaign": "{{campaign}} uzta-kanpaina",
     "role": {
       "cover_crop": "estalkia",
       "catch_crop": "tarteko laborea",
@@ -488,11 +574,13 @@ const eu = {
       "store_unavailable": "Ezin izan da orain gorde; saiatu berriro une batean.",
       "invalid_parcel": "Partzela ez da baliozkoa.",
       "invalid_number": "Berrikusi kopuruak: zero baino handiagoak izan behar dute.",
-      "perennial_harvest_unsupported": "Labore iraunkorren uzta (mahastia, olibondoa, fruta-arbolak) ez da oraindik hemen erregistratzen.",
       "no_planned_crop": "Ez dago laborerik planifikatuta partzela honetan data horretarako: planifikatu lehenik Laboreen plangintzan.",
       "no_crop_to_close": "Partzela honetan ez dago data horretan biltzeko laborerik.",
       "not_sown": "Labore hori ez dago ereinda gisa erregistratuta: erregistratu lehenik ereitea.",
       "already_recorded": "Labore honek badu erregistro bera.",
+      "not_perennial": "Labore iraunkorrak (mahastia, olibondoa, fruta-arbolak) soilik atera daitezke errotik.",
+      "already_closed": "Landaketa hau itxita dago jada.",
+      "date_before_last_harvest": "Data landaketa honen azken erregistratutako uzta baino lehenagokoa da.",
       "future_date": "Data ezin da etorkizunekoa izan.",
       "date_outside_crop_window": "Data hori ez dagokio aukeratutako laboreari: berrikusi data edo laborea.",
       "missing_fields": "Derrigorrezko datuak falta dira ({{detail}}).",
@@ -500,6 +588,26 @@ const eu = {
       "parcel_not_found": "Ez da partzela aurkitu.",
       "crop_data_unavailable": "Ezin izan dira partzelaren laboreak irakurri; saiatu berriro.",
       "generic": "Ezin izan da erregistratu. Saiatu berriro."
+    }
+  },
+  plantation: {
+    "declare": "Deklaratu lehendik dagoen landaketa",
+    "title": "Deklaratu lehendik dagoen landaketa",
+    "parcel": "Lursaila",
+    "species": "Espeziea",
+    "year": "Landatze-urtea",
+    "day": "Landatze-eguna (aukerakoa)",
+    "variety": "Barietatea (aukerakoa)",
+    "submit": "Deklaratu",
+    "success": "Landaketa deklaratuta.",
+    "noParcels": "Ez dago landaketa bat deklaratzeko lursail librerik: guztiek dute egungo laborantza.",
+    "errors": {
+      "invalid_species": "Aukeratu zerrendako espezieetako bat.",
+      "invalid_year": "Landatze-urtea ez da baliozkoa.",
+      "future_date": "Data ezin da etorkizunekoa izan.",
+      "invalid_date": "Data ez da baliozkoa.",
+      "parcel_has_current_crop": "Lursail honek egungo laborantza bat du jada.",
+      "already_declared": "Landaketa hau deklaratuta dago jada."
     }
   },
 };
@@ -534,6 +642,11 @@ const fr = {
     "campaign": "campagne {{campaign}}",
     "successSowing": "Semis enregistré : {{crop}}",
     "successHarvest": "Récolte enregistrée : {{crop}}",
+    "successUprooting": "Arrachage enregistré : {{crop}}",
+    "uproot": "Enregistrer un arrachage",
+    "titleUprooting": "Enregistrer un arrachage effectué",
+    "noTargetsUprooting": "Aucune plantation pérenne n'attend d'être arrachée.",
+    "harvestCampaign": "Campagne de récolte {{campaign}}",
     "role": {
       "cover_crop": "couvert",
       "catch_crop": "culture intermédiaire",
@@ -543,11 +656,13 @@ const fr = {
       "store_unavailable": "Impossible d'enregistrer pour l'instant ; réessayez dans un moment.",
       "invalid_parcel": "La parcelle n'est pas valide.",
       "invalid_number": "Vérifiez les quantités : elles doivent être supérieures à zéro.",
-      "perennial_harvest_unsupported": "Les récoltes des cultures pérennes (vigne, olivier, vergers) ne sont pas encore enregistrées ici.",
       "no_planned_crop": "Aucune culture n'est planifiée sur cette parcelle pour cette date : planifiez-la d'abord dans Planification des cultures.",
       "no_crop_to_close": "Aucune culture de cette parcelle ne peut être récoltée à cette date.",
       "not_sown": "Cette culture n'est pas enregistrée comme semée : enregistrez d'abord son semis.",
       "already_recorded": "Cette culture a déjà le même enregistrement.",
+      "not_perennial": "Seules les cultures pérennes (vigne, olivier, vergers) peuvent être arrachées.",
+      "already_closed": "Cette plantation est déjà clôturée.",
+      "date_before_last_harvest": "La date est antérieure à la dernière récolte enregistrée de cette plantation.",
       "future_date": "La date ne peut pas être future.",
       "date_outside_crop_window": "Cette date ne correspond pas à la culture choisie : vérifiez la date ou la culture.",
       "missing_fields": "Des données obligatoires manquent ({{detail}}).",
@@ -555,6 +670,26 @@ const fr = {
       "parcel_not_found": "Parcelle introuvable.",
       "crop_data_unavailable": "Impossible de lire les cultures de la parcelle ; réessayez.",
       "generic": "Impossible d'enregistrer. Réessayez."
+    }
+  },
+  plantation: {
+    "declare": "Déclarer une plantation existante",
+    "title": "Déclarer une plantation existante",
+    "parcel": "Parcelle",
+    "species": "Espèce",
+    "year": "Année de plantation",
+    "day": "Jour de plantation (facultatif)",
+    "variety": "Variété (facultatif)",
+    "submit": "Déclarer",
+    "success": "Plantation déclarée.",
+    "noParcels": "Aucune parcelle n'est libre pour déclarer une plantation : toutes ont une culture en cours.",
+    "errors": {
+      "invalid_species": "Choisissez l'une des espèces de la liste.",
+      "invalid_year": "L'année de plantation n'est pas valide.",
+      "future_date": "La date ne peut pas être future.",
+      "invalid_date": "La date n'est pas valide.",
+      "parcel_has_current_crop": "Cette parcelle a déjà une culture en cours.",
+      "already_declared": "Cette plantation est déjà déclarée."
     }
   },
 };
@@ -589,6 +724,11 @@ const pt = {
     "campaign": "campanha {{campaign}}",
     "successSowing": "Sementeira registada: {{crop}}",
     "successHarvest": "Colheita registada: {{crop}}",
+    "successUprooting": "Arranque registado: {{crop}}",
+    "uproot": "Registar arranque",
+    "titleUprooting": "Registar um arranque feito",
+    "noTargetsUprooting": "Não há plantações plurianuais à espera de arranque.",
+    "harvestCampaign": "Campanha de colheita {{campaign}}",
     "role": {
       "cover_crop": "cobertura",
       "catch_crop": "cultura intercalar",
@@ -598,11 +738,13 @@ const pt = {
       "store_unavailable": "Não foi possível guardar agora; tente de novo dentro de momentos.",
       "invalid_parcel": "A parcela não é válida.",
       "invalid_number": "Verifique as quantidades: devem ser números maiores que zero.",
-      "perennial_harvest_unsupported": "A colheita de culturas plurianuais (vinha, olival, pomares) ainda não se regista aqui.",
       "no_planned_crop": "Não há nenhuma cultura planeada nesta parcela para essa data: planeie-a primeiro em Planeamento de culturas.",
       "no_crop_to_close": "Não há nenhuma cultura nesta parcela para colher nessa data.",
       "not_sown": "Essa cultura não consta como semeada: registe antes a sementeira.",
       "already_recorded": "Esta cultura já tem o mesmo registo.",
+      "not_perennial": "Só se podem arrancar culturas plurianuais (vinha, olival, pomares).",
+      "already_closed": "Esta plantação já está encerrada.",
+      "date_before_last_harvest": "A data é anterior à última colheita registada desta plantação.",
       "future_date": "A data não pode ser futura.",
       "date_outside_crop_window": "Essa data não corresponde à cultura escolhida: verifique a data ou a cultura.",
       "missing_fields": "Faltam dados obrigatórios ({{detail}}).",
@@ -610,6 +752,26 @@ const pt = {
       "parcel_not_found": "Parcela não encontrada.",
       "crop_data_unavailable": "Não foi possível ler as culturas da parcela; tente de novo.",
       "generic": "Não foi possível registar. Tente de novo."
+    }
+  },
+  plantation: {
+    "declare": "Declarar plantação existente",
+    "title": "Declarar uma plantação existente",
+    "parcel": "Parcela",
+    "species": "Espécie",
+    "year": "Ano de plantação",
+    "day": "Dia de plantação (opcional)",
+    "variety": "Variedade (opcional)",
+    "submit": "Declarar",
+    "success": "Plantação declarada.",
+    "noParcels": "Nenhuma parcela está livre para declarar uma plantação: todas têm uma cultura atual.",
+    "errors": {
+      "invalid_species": "Escolha uma das espécies da lista.",
+      "invalid_year": "O ano de plantação não é válido.",
+      "future_date": "A data não pode ser futura.",
+      "invalid_date": "A data não é válida.",
+      "parcel_has_current_crop": "Esta parcela já tem uma cultura atual.",
+      "already_declared": "Esta plantação já está declarada."
     }
   },
 };

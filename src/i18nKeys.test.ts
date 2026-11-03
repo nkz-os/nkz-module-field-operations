@@ -15,3 +15,12 @@ describe('record form strings', () => {
     });
   }
 });
+
+describe('plantation strings', () => {
+  const en = keys((resources.en as Record<string, unknown>).plantation).sort();
+  for (const [lang, res] of Object.entries(resources)) {
+    it(`${lang} has every plantation key of en`, () => {
+      expect(keys((res as Record<string, unknown>).plantation).sort()).toEqual(en);
+    });
+  }
+});

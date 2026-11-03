@@ -5,6 +5,7 @@ import OperationCard, { Operation } from './OperationCard';
 import OperationsTable from './OperationsTable';
 import { normalizeOperation } from '../lib/normalizeOperation';
 import RecordOperationModal from './RecordOperationModal';
+import DeclarePlantationModal from './DeclarePlantationModal';
 import type { RecordKind } from '../lib/recordModel';
 
 interface Tab {
@@ -35,6 +36,7 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
   const [error, setError]           = useState<string | null>(null);
   const [viewMode, setViewMode]     = useState<'cards' | 'table'>('cards');
   const [recording, setRecording]   = useState<RecordKind | null>(null);
+  const [declaring, setDeclaring]   = useState(false);
   const [notice, setNotice]         = useState<string | null>(null);
 
   const fetchOperations = useCallback(async () => {
@@ -84,6 +86,20 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
           >
             {t('record.harvest')}
           </button>
+          <button
+            id="field-ops-record-uprooting"
+            onClick={() => { setNotice(null); setRecording('uprooting'); }}
+            className="text-xs font-medium rounded-md px-2 py-1 border border-nkz-accent-base text-nkz-accent-base"
+          >
+            {t('record.uproot')}
+          </button>
+          <button
+            id="field-ops-declare-plantation"
+            onClick={() => { setNotice(null); setDeclaring(true); }}
+            className="text-xs font-medium rounded-md px-2 py-1 border border-nkz-accent-base text-nkz-accent-base"
+          >
+            {t('plantation.declare')}
+          </button>
         </div>
         <button
           id="field-ops-refresh"
@@ -112,6 +128,13 @@ const OperationsDashboard: React.FC<OperationsDashboardProps> = ({ parcelId, onS
           kind={recording}
           onClose={() => setRecording(null)}
           onRecorded={(message) => { setRecording(null); setNotice(message); void fetchOperations(); }}
+        />
+      )}
+
+      {declaring && (
+        <DeclarePlantationModal
+          onClose={() => setDeclaring(false)}
+          onDeclared={(message) => { setDeclaring(false); setNotice(message); void fetchOperations(); }}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRecordBody, cropNamesFromFarm, errorKey, targetsFor, type ParcelView } from './recordModel';
+import { buildPlantationBody, buildRecordBody, canDeclare, canSubmit, cropNamesFromFarm, errorKey, plantationErrorKey, plantationParcels, targetsFor, type ParcelView } from './recordModel';
 
 const parcels: ParcelView[] = [
   { id: 'urn:ngsi-ld:AgriParcel:b', name: 'Soto Alto', area: 12, readable: true, cycles: [
@@ -63,7 +63,7 @@ import { bearerHeaders, canSubmit, cropLabel, selectTarget } from './recordModel
 
 describe('selectTarget', () => {
   const ts = targetsFor(parcels, 'sowing').concat([{ parcelId: 'p2', parcelName: 'X', cropId: 'c9', species: 'ZEAMX',
-    role: 'main_crop', variety: null, campaign: 2027, plannedStart: null, name: null }]);
+    role: 'main_crop', variety: null, campaign: 2027, plannedStart: null, name: null, harvestCampaign: null }]);
   const base = { parcelId: '', cropId: '', date: '2026-11-20', variety: '', seedingRate: '', sowingMethod: '', harvestedWeight: '' };
   it('pre-fills the planned variety and clears it for a crop without one', () => {
     const a = selectTarget(base, ts, 'c1');
@@ -102,9 +102,43 @@ describe('bearerHeaders', () => {
 });
 
 describe('errorKey (new codes)', () => {
-  it('knows the store, parcel, number and perennial codes', () => {
-    for (const c of ['store_unavailable', 'invalid_parcel', 'invalid_number', 'perennial_harvest_unsupported']) {
+  it('knows the store, parcel, number and perennial codes (the old unsupported code is gone)', () => {
+    for (const c of ['store_unavailable', 'invalid_parcel', 'invalid_number', 'not_perennial', 'already_closed', 'date_before_last_harvest']) {
       expect(errorKey(c)).toBe(`record.error.${c}`);
     }
+  });
+});
+
+describe('perennial records', () => {
+  const cy = (over: Record<string, unknown>) => ({ crop_id: 'c', species: 'OLVEU', role: 'main_crop', variety: null,
+    campaign_label: null, start: { date: '2020-01-01', provenance: 'declared' }, end: { date: null, provenance: null },
+    can_sow: false, can_harvest: true, can_uproot: true, harvest_campaigns: [], ...over });
+  const parcel = (cycles: unknown[], over = {}) => ({ id: 'p1', name: 'P', area: 1, readable: true, cycles, ...over }) as never;
+  it('errorKey drops perennial_harvest_unsupported', () => {
+    expect(errorKey('perennial_harvest_unsupported')).toBe('record.error.generic');
+  });
+  it('uprooting targets need can_uproot; body has no weight', () => {
+    expect(targetsFor([parcel([cy({}), cy({ crop_id: 'a', can_uproot: false })])], 'uprooting').map((x) => x.cropId)).toEqual(['c']);
+    const f = { parcelId: 'p1', cropId: 'c', date: '2026-10-01', variety: '', seedingRate: '', sowingMethod: '', harvestedWeight: '' };
+    expect(canSubmit('uprooting', f)).toBe(true);
+    expect(buildRecordBody('uprooting', f)).toEqual({ operation_type: 'uprooting', parcel_id: 'p1', crop_id: 'c', date: '2026-10-01' });
+  });
+  it('harvest target carries the latest campaign display', () => {
+    const t = targetsFor([parcel([cy({ harvest_campaigns: [{ label: 2025, display: '2025/26' }, { label: 2026, display: '2026/27' }] })])], 'harvesting');
+    expect(t[0].harvestCampaign).toBe('2026/27');
+  });
+  it('plantationParcels hides parcels with a main crop or unreadable', () => {
+    const ps = [parcel([cy({})]), parcel([], { id: 'p2', name: null }), parcel([], { id: 'p3', readable: false })];
+    expect(plantationParcels(ps)).toEqual([{ id: 'p2', name: 'p2' }]);
+  });
+  it('plantation body: year number, optional fields only when filled', () => {
+    expect(buildPlantationBody({ parcelId: 'p', eppo: 'OLVEU', year: '2015', date: '', variety: ' ' })).toEqual({ eppo: 'OLVEU', planting_year: 2015 });
+    expect(buildPlantationBody({ parcelId: 'p', eppo: 'OLVEU', year: '2015', date: '2015-03-01', variety: 'Arbequina' }))
+      .toEqual({ eppo: 'OLVEU', planting_year: 2015, planting_date: '2015-03-01', variety: 'Arbequina' });
+    expect(canDeclare({ parcelId: 'p', eppo: 'OLVEU', year: '15', date: '', variety: '' })).toBe(false);
+  });
+  it('plantation error keys', () => {
+    expect(plantationErrorKey('parcel_has_current_crop')).toBe('plantation.errors.parcel_has_current_crop');
+    expect(plantationErrorKey('store_unavailable')).toBe('record.error.store_unavailable');
   });
 });
