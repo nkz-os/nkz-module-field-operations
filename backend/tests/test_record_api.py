@@ -192,7 +192,7 @@ def test_record_perennial_harvest_201(env):
     r = TestClient(app).post(URL, headers=H, json={"parcel_id": P, "operation_type": "harvesting",
                                                    "date": "2026-11-10", "harvestedWeight": 900})
     assert r.status_code == 201, r.text
-    assert r.json()["crop_id"] == OLIVE["id"] and r.json()["harvest_campaign"] == "2026"
+    assert r.json()["crop_id"] == OLIVE["id"] and r.json()["harvest_campaign"] == "2026/27"
     assert r.json()["harvest_campaign_label"] == 2026 and r.json()["campaign"] is None
     assert env["created"][0][1]["operation_type"] == "harvesting"
 

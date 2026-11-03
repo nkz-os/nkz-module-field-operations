@@ -159,7 +159,7 @@ def test_store_failure_is_503(env):
 def test_plantation_then_harvest_records(env):
     entity = pl.build_plantation("acme", P, "OLVEU", date(2000, 1, 1), None)
     m = match_record(P, [entity], [], "harvesting", date(2026, 11, 20), date(2026, 11, 20))
-    assert m.ok and m.crop_id == OWN and m.harvest_campaign == "2026"
+    assert m.ok and m.crop_id == OWN and m.harvest_campaign == "2026/27"
 
 
 WHEAT = {"id": "urn:ngsi-ld:AgriCrop:acme:p1:wheat", "type": "AgriCrop", "hasAgriParcel": P, "status": "planned",
