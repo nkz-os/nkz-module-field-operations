@@ -88,7 +88,7 @@ def test_perennial_harvest_recorded():
 
 def test_perennial_first_harvest_recorded():
     m = match_record(P, [OLIVE], [], "harvesting", date(2026, 12, 1), date(2026, 12, 2))
-    assert m.ok and m.crop_id == OLIVE["id"] and m.harvest_campaign == "2026"
+    assert m.ok and m.crop_id == OLIVE["id"] and m.harvest_campaign == "2026/27"
 
 
 def test_perennial_same_day_harvest_already_recorded():
