@@ -4,6 +4,8 @@ import logging
 import os
 import re
 from datetime import date
+
+import requests
 from fastapi import APIRouter, HTTPException, Request, Response
 from nkz_platform_sdk.notify_auth import accept_master_from_env, verify_notification
 
@@ -163,6 +165,9 @@ def weekly_report_contribution(request: Request, tenant_id: str = "", week_start
         raise HTTPException(400, "week_start must be a Monday")
     try:
         return weekly_report.build(tenant_id, monday)
-    except Exception as exc:  # noqa: BLE001 — surfaced as 502, never an empty list
+    except (RuntimeError, requests.RequestException) as exc:  # Orion-LD error or network failure
         logger.error("weekly-report: Orion read failed tenant=%s: %s", tenant_id, exc)
         raise HTTPException(502, "Orion-LD unavailable")
+    except Exception:  # noqa: BLE001 — a code bug is a 500, never a 200 with an empty list
+        logger.exception("weekly-report: unexpected error tenant=%s", tenant_id)
+        raise HTTPException(500, "Internal error")

@@ -106,10 +106,53 @@ def test_parcel_name_resolved_and_fallback_never_urn():
     assert "urn:" not in tasks["u"]["subject"]["name"]
 
 
-def test_operation_without_parcel_is_skipped():
+def _no_text_codes(task):
+    for lang in ("es", "eu", "en"):
+        for v in task["text"][lang].values():
+            assert v.strip() and "urn:" not in v and "{" not in v
+
+
+def test_operation_without_parcel_shown_generic():
     op = _op("x")
     del op["hasAgriParcel"]
-    assert _get({"planned": [op, _op("y")]}).json()["tasks"][0]["id"] == "y"
+    body = _get({"planned": [op, _op("y")]}).json()
+    t = {t["id"]: t for t in body["tasks"]}["x"]
+    assert t["subject"] == {"type": "farm", "id": "", "name": ""}
+    assert t["link"] is None
+    assert t["text"]["es"]["title"] == "Operación pendiente sin parcela asignada"
+    _no_text_codes(t)
+    assert body["complete"] is True and len(body["tasks"]) == 2
+
+
+def test_unknown_type_shown_with_parcel_name():
+    body = _get({"planned": [_op("u", op_type="weird_type", parcel=NAMED)]}).json()
+    t = body["tasks"][0]
+    assert t["kind"] == "other"
+    assert t["text"]["es"]["title"] == "Operación pendiente en Olive grove"
+    assert "weird_type" not in str(t["text"])
+    _no_text_codes(t)
+    assert body["complete"] is True
+
+
+def test_missing_type_shown_too():
+    op = _op("m")
+    del op["operationType"]
+    assert [t["id"] for t in _get({"planned": [op]}).json()["tasks"]] == ["m"]
+
+
+def test_row_without_id_marks_incomplete(caplog):
+    bad = _op("z")
+    del bad["id"]
+    body = _get({"planned": [bad, _op("ok")]}).json()
+    assert [t["id"] for t in body["tasks"]] == ["ok"]
+    assert body["complete"] is False
+
+
+def test_duplicate_across_pages_deduped(monkeypatch):
+    monkeypatch.setattr(weekly_report, "PAGE", 2)
+    rows = [_op("a"), _op("b"), _op("b"), _op("c")]
+    ids = [t["id"] for t in _get({"planned": rows}).json()["tasks"]]
+    assert sorted(ids) == ["a", "b", "c"]
 
 
 def test_paging_reads_every_page(monkeypatch):
@@ -132,6 +175,25 @@ def test_orion_parcels_failure_502():
         raise RuntimeError("Orion-LD query failed (503)")
     with patch.object(weekly_report, "query_operations", _fake_ops({})), \
          patch.object(weekly_report, "query_parcel_names", boom):
+        r = client.get(URL, params={"tenant_id": "acme", "week_start": "2026-11-09"}, headers=HEADERS)
+    assert r.status_code == 502
+
+
+def test_non_orion_error_is_500_not_200():
+    local = TestClient(app, raise_server_exceptions=False)
+    with patch.object(weekly_report, "query_operations", _fake_ops({})), \
+         patch.object(weekly_report, "query_parcel_names", lambda t: 1 / 0):
+        r = local.get(URL, params={"tenant_id": "acme", "week_start": "2026-11-09"}, headers=HEADERS)
+    assert r.status_code == 500
+
+
+def test_network_error_is_502():
+    import requests
+
+    def boom(*a, **k):
+        raise requests.ConnectionError("down")
+    with patch.object(weekly_report, "query_operations", boom), \
+         patch.object(weekly_report, "query_parcel_names", lambda t: {}):
         r = client.get(URL, params={"tenant_id": "acme", "week_start": "2026-11-09"}, headers=HEADERS)
     assert r.status_code == 502
 

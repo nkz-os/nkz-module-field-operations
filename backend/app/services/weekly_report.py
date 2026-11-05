@@ -74,12 +74,20 @@ def _planned_day(op: dict) -> Optional[str]:
 
 
 def _all_pending(tenant_id: str) -> list[dict]:
+    """Every pending row, de-duplicated by id (a row can repeat across pages)."""
     rows: list[dict] = []
+    seen: set[str] = set()
     for status in PENDING_STATUSES:
         offset = 0
         while True:
             page = query_operations(tenant_id, status=status, limit=PAGE, offset=offset)
-            rows.extend(page)
+            for row in page:
+                op_id = row.get("id")
+                if op_id:
+                    if op_id in seen:
+                        continue
+                    seen.add(op_id)
+                rows.append(row)
             if len(page) < PAGE:
                 break
             offset += PAGE
@@ -93,27 +101,62 @@ def _parcel_name(parcel_id: str, names: dict) -> str:
     return parcel_id.rsplit(":", 1)[-1][:8]
 
 
+# ASSUMPTION: eu wording is ours — confirm before shipping
+_UNKNOWN_TITLE = {
+    "es": "Operación pendiente en {parcel}",
+    "eu": "Zain dagoen eragiketa {parcel} lursailean",
+    "en": "Pending operation on {parcel}",
+}
+_NO_PARCEL_TITLE = {
+    "es": "Operación pendiente sin parcela asignada",
+    "eu": "Lursailik esleitu gabeko eragiketa zain",
+    "en": "Pending operation with no parcel assigned",
+}
+
+
 def build(tenant_id: str, week_start: date) -> dict:
     """Raises on any Orion failure (RuntimeError / requests errors)."""
     names = query_parcel_names(tenant_id)
     tasks = []
+    complete = True
     for op in _all_pending(tenant_id):
+        if not op.get("id"):
+            logger.error("weekly-report: pending row without id cannot be shown tenant=%s", tenant_id)
+            complete = False
+            continue
         status = _plain(op.get("status"))
+        if status not in PENDING_STATUSES:
+            continue
         op_type = _plain(op.get("operationType"))
         parcel_id = _plain(op.get("hasAgriParcel") or op.get("refAgriParcel"))
-        if status not in PENDING_STATUSES or op_type not in _TITLES:
-            continue
-        if not isinstance(parcel_id, str) or not parcel_id:
-            logger.warning("weekly-report: operation without parcel skipped tenant=%s op=%s", tenant_id, op.get("id"))
-            continue
-        day = _planned_day(op)
+        has_parcel = isinstance(parcel_id, str) and bool(parcel_id)
+        known = op_type in _TITLES
+        if has_parcel:
+            subject = {"type": "parcel", "id": parcel_id, "name": _parcel_name(parcel_id, names)}
+            link = {"kind": "open_parcel", "params": {"parcel_id": parcel_id}}
+        else:
+            logger.warning("weekly-report: operation without parcel tenant=%s op=%s", tenant_id, op["id"])
+            subject = {"type": "farm", "id": "", "name": ""}
+            link = None
+        if not has_parcel:
+            titles = _NO_PARCEL_TITLE
+        elif known:
+            titles = _TITLES[op_type]
+        else:
+            logger.warning("weekly-report: unknown operation type tenant=%s op=%s", tenant_id, op["id"])
+            titles = {l: _UNKNOWN_TITLE[l].format(parcel=subject["name"]) for l in _UNKNOWN_TITLE}
         tasks.append({
             "id": op["id"],
-            "subject": {"type": "parcel", "id": parcel_id, "name": _parcel_name(parcel_id, names)},
-            "kind": _KIND[op_type],
-            "when": {"type": "date", "date": day} if day else {"type": "undated", "date": None},
-            "text": {lang: {"title": _TITLES[op_type][lang], "why": _WHY[status][lang]} for lang in ("es", "eu", "en")},
-            "link": {"kind": "open_parcel", "params": {"parcel_id": parcel_id}},
+            "subject": subject,
+            "kind": _KIND.get(op_type, "other"),
+            "when": _when(op),
+            "text": {lang: {"title": titles[lang], "why": _WHY[status][lang]} for lang in ("es", "eu", "en")},
+            "link": link,
             "relatedAlertId": None,
         })
-    return {"version": 1, "complete": True, "tasks": tasks, "changes": [], "figures": []}
+    return {"version": 1, "complete": complete, "tasks": tasks, "changes": [], "figures": []}
+
+
+def _when(op: dict) -> dict:
+    day = _planned_day(op)
+    return {"type": "date", "date": day} if day else {"type": "undated", "date": None}
