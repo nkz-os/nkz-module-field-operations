@@ -124,11 +124,12 @@ def test_operation_without_parcel_shown_generic():
     assert body["complete"] is True and len(body["tasks"]) == 2
 
 
-def test_unknown_type_shown_with_parcel_name():
+def test_unknown_type_title_has_no_parcel_name():
     body = _get({"planned": [_op("u", op_type="weird_type", parcel=NAMED)]}).json()
     t = body["tasks"][0]
     assert t["kind"] == "other"
-    assert t["text"]["es"]["title"] == "Operación pendiente en Olive grove"
+    assert t["text"]["es"]["title"] == "Operación pendiente"
+    assert t["subject"]["name"] == "Olive grove"
     assert "weird_type" not in str(t["text"])
     _no_text_codes(t)
     assert body["complete"] is True
@@ -241,3 +242,23 @@ def test_query_operations_offset_opt_in():
         orion_ops.query_operations("acme", status="planned", offset=1000)
     assert "offset" not in seen[0]
     assert seen[1]["offset"] == 1000
+
+
+_TIME_WORDS = ("hoy", "esta semana", "hacia el", "today", "this week", "around", "gaur", "aste honetan")
+
+
+def test_no_title_has_parcel_name_nor_time():
+    ops = [_op(f"o{i}", op_type=t, parcel=NAMED) for i, t in enumerate(VALID_OPERATION_TYPES)]
+    ops.append(_op("u", op_type="weird_type", parcel=NAMED))
+    ops.append(_op("n", op_type="weird_type", planned="2026-11-12", parcel=NAMED))
+    body = _get({"planned": ops}).json()
+    assert len(body["tasks"]) == 11
+    for task in body["tasks"]:
+        for lang, text in task["text"].items():
+            low = text["title"].lower()
+            assert "olive grove" not in low
+            assert not any(w in low for w in _TIME_WORDS), text["title"]
+
+
+def test_unknown_count_absent_means_zero():
+    assert "unknown_count" not in _get({"planned": []}).json()

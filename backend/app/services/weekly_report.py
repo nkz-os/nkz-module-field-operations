@@ -103,9 +103,9 @@ def _parcel_name(parcel_id: str, names: dict) -> str:
 
 # ASSUMPTION: eu wording is ours — confirm before shipping
 _UNKNOWN_TITLE = {
-    "es": "Operación pendiente en {parcel}",
-    "eu": "Zain dagoen eragiketa {parcel} lursailean",
-    "en": "Pending operation on {parcel}",
+    "es": "Operación pendiente",
+    "eu": "Zain dagoen eragiketa",
+    "en": "Pending operation",
 }
 _NO_PARCEL_TITLE = {
     "es": "Operación pendiente sin parcela asignada",
@@ -144,7 +144,7 @@ def build(tenant_id: str, week_start: date) -> dict:
             titles = _TITLES[op_type]
         else:
             logger.warning("weekly-report: unknown operation type tenant=%s op=%s", tenant_id, op["id"])
-            titles = {l: _UNKNOWN_TITLE[l].format(parcel=subject["name"]) for l in _UNKNOWN_TITLE}
+            titles = _UNKNOWN_TITLE
         tasks.append({
             "id": op["id"],
             "subject": subject,
