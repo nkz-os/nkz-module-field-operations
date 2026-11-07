@@ -35,6 +35,7 @@ class FakeOrion:
         self.parcel = {"id": P, "type": "AgriParcel", "name": "Soto Alto"}
         self.crops = list(crops)
         self.created, self.updated, self.appended, self.deleted = [], [], [], []
+        self.deleted_attrs = []
         self.create_error = create_error
 
     async def get_entity(self, eid, options=None):
@@ -57,6 +58,9 @@ class FakeOrion:
 
     async def delete_entity(self, eid):
         self.deleted.append(eid)
+
+    async def delete_entity_attr(self, eid, attr):
+        self.deleted_attrs.append((eid, attr))
 
     async def close(self):
         pass
@@ -184,8 +188,8 @@ def test_get_lists_declared_crops_only(env):
     r = TestClient(app).get(URL, headers=H)
     assert r.status_code == 200
     assert r.json() == [
-        {"campaign": 2023, "eppo": "TRZAX", "crop_id": "urn:ngsi-ld:AgriCrop:tenant-a:p1:declared-2023"},
-        {"campaign": 2024, "eppo": "HORVX", "crop_id": OWN},
+        {"campaign": 2023, "eppo": "TRZAX", "crop_id": "urn:ngsi-ld:AgriCrop:tenant-a:p1:declared-2023", "variety": None, "yield_kg_ha": None},
+        {"campaign": 2024, "eppo": "HORVX", "crop_id": OWN, "variety": None, "yield_kg_ha": None},
     ]
 
 
@@ -275,3 +279,129 @@ def test_delete_store_failure_is_503(env):
         raise httpx.ConnectError("down")
     env["orion"].delete_entity = boom
     assert delete().status_code == 503
+
+
+def test_creates_declared_crop_with_variety_and_yield(env):
+    r = post({"campaign": 2024, "eppo": "TRZAX", "variety": "Nogal", "yield_kg_ha": 4500.5})
+    assert r.status_code == 201 and r.json() == {"crop_id": OWN}
+    (e,) = env["orion"].created
+    assert e["variety"] == {"type": "Property", "value": "Nogal"}
+    assert e["nkz:declaredYieldKgHa"] == {
+        "type": "Property",
+        "value": 4500.5,
+        "unitCode": "C62",
+    }
+    assert _no_null(e)
+    # round-trip through GET /declared-crops
+    env["orion"].crops = [e]
+    get_res = TestClient(app).get(URL, headers=H)
+    assert get_res.status_code == 200
+    assert get_res.json() == [
+        {
+            "campaign": 2024,
+            "eppo": "TRZAX",
+            "crop_id": OWN,
+            "variety": "Nogal",
+            "yield_kg_ha": 4500.5,
+        }
+    ]
+
+
+def test_creates_crop_with_blank_variety_omits_variety(env):
+    r = post({"campaign": 2024, "eppo": "TRZAX", "variety": "   "})
+    assert r.status_code == 201
+    (e,) = env["orion"].created
+    assert "variety" not in e
+    assert "nkz:declaredYieldKgHa" not in e
+
+
+def test_updating_existing_adds_variety_and_yield(env):
+    env["orion"] = FakeOrion([declared(2024, "TRZAX")])
+    r = post({"campaign": 2024, "eppo": "TRZAX", "variety": "Nogal", "yield_kg_ha": 4500.5})
+    assert r.status_code == 201
+    assert env["orion"].created == []
+    assert len(env["orion"].updated) == 1
+    eid, attrs = env["orion"].updated[0]
+    assert eid == OWN
+    assert attrs["species"] == {"type": "Property", "value": "TRZAX"}
+    assert attrs["variety"] == {"type": "Property", "value": "Nogal"}
+    assert attrs["nkz:declaredYieldKgHa"] == {
+        "type": "Property",
+        "value": 4500.5,
+        "unitCode": "C62",
+    }
+    assert _no_null(attrs)
+    assert env["orion"].deleted_attrs == []
+
+
+def test_redeclaring_without_variety_and_yield_clears_them_via_delete_attr(env):
+    existing = declared(2024, "TRZAX")
+    existing["variety"] = {"type": "Property", "value": "Nogal"}
+    existing["nkz:declaredYieldKgHa"] = {"type": "Property", "value": 4500.5, "unitCode": "C62"}
+    env["orion"] = FakeOrion([existing])
+    r = post({"campaign": 2024, "eppo": "HORVX"})
+    assert r.status_code == 201
+    assert env["orion"].created == []
+    assert len(env["orion"].updated) == 1
+    eid, attrs = env["orion"].updated[0]
+    assert eid == OWN
+    assert attrs == {"species": {"type": "Property", "value": "HORVX"}}
+    assert _no_null(attrs)
+    assert "variety" not in attrs and "nkz:declaredYieldKgHa" not in attrs
+    assert env["orion"].deleted_attrs == [
+        (OWN, "variety"),
+        (OWN, "nkz:declaredYieldKgHa"),
+    ]
+
+
+def test_redeclaring_clears_expanded_iri_terms(env):
+    existing = declared(2024, "TRZAX")
+    existing["https://nkz-os.org/ns/variety"] = "Nogal"
+    existing["https://nkz-os.org/ns/declaredYieldKgHa"] = 4500.5
+    env["orion"] = FakeOrion([existing])
+    r = post({"campaign": 2024, "eppo": "TRZAX"})
+    assert r.status_code == 201
+    assert env["orion"].deleted_attrs == [
+        (OWN, "variety"),
+        (OWN, "nkz:declaredYieldKgHa"),
+    ]
+
+
+@pytest.mark.parametrize("variety", [123, True, ["Nogal"], {"name": "Nogal"}])
+def test_invalid_variety_non_string_is_422(env, variety):
+    r = post({"campaign": 2024, "eppo": "TRZAX", "variety": variety})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_variety"
+    assert env["orion"].created == []
+
+
+def test_invalid_variety_too_long_is_422(env):
+    r = post({"campaign": 2024, "eppo": "TRZAX", "variety": "A" * 121})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_variety"
+    assert env["orion"].created == []
+
+
+@pytest.mark.parametrize("variety", ["No\x00gal", "No\ngal", "No\x1fgal", "No\x7fgal"])
+def test_invalid_variety_control_chars_is_422(env, variety):
+    r = post({"campaign": 2024, "eppo": "TRZAX", "variety": variety})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_variety"
+    assert env["orion"].created == []
+
+
+@pytest.mark.parametrize("yield_val", [0, -10, 250000, True, "4000"])
+def test_invalid_yield_is_422(env, yield_val):
+    r = post({"campaign": 2024, "eppo": "TRZAX", "yield_kg_ha": yield_val})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_yield"
+    assert env["orion"].created == []
+
+
+def test_invalid_yield_nan_is_422(env):
+    r = TestClient(app).post(
+        URL,
+        headers={**H, "Content-Type": "application/json"},
+        content=b'{"campaign": 2024, "eppo": "TRZAX", "yield_kg_ha": NaN}',
+    )
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_yield"
+    assert env["orion"].created == []
+    with pytest.raises(dp.DeclareError) as exc_info:
+        dp.parse_yield_kg_ha(float("nan"))
+    assert exc_info.value.code == "invalid_yield"
