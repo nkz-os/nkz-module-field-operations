@@ -44,6 +44,8 @@ async def declare_past_crop(request: Request, parcel_id: str, body: dict):
         try:
             eppo = dp.parse_species(body.get("eppo"))
             campaign = dp.parse_campaign(body.get("campaign"), _today(parcel))
+            variety = dp.parse_variety(body.get("variety"))
+            yield_kg_ha = dp.parse_yield_kg_ha(body.get("yield_kg_ha"))
         except dp.DeclareError as exc:
             _raise(exc)
         crop_id = dp.declared_crop_id(tenant_id, parcel_urn, campaign)
@@ -52,16 +54,19 @@ async def declare_past_crop(request: Request, parcel_id: str, body: dict):
         if other:
             raise HTTPException(status_code=409, detail={"code": "campaign_has_dated_crop", "crop_id": other})
         try:
-            if any(c.get("id") == crop_id for c in crops):
-                await client.update_entity_attrs(crop_id, dp.species_patch(eppo))
+            existing = next((c for c in crops if c.get("id") == crop_id), None)
+            if existing is not None:
+                await client.update_entity_attrs(crop_id, dp.species_patch(eppo, variety=variety, yield_kg_ha=yield_kg_ha))
+                for attr in dp.attrs_to_clear(existing, variety=variety, yield_kg_ha=yield_kg_ha):
+                    await client.delete_entity_attr(crop_id, attr)
             else:
                 try:
-                    await client.create_entity(dp.build_entity(tenant_id, parcel_urn, campaign, eppo))
+                    await client.create_entity(dp.build_entity(tenant_id, parcel_urn, campaign, eppo, variety=variety, yield_kg_ha=yield_kg_ha))
                 except httpx.HTTPStatusError as exc:
                     if exc.response is None or exc.response.status_code != 409:
                         raise
                     # Declared at the same moment by another request: the same entity, update it.
-                    await client.update_entity_attrs(crop_id, dp.species_patch(eppo))
+                    await client.update_entity_attrs(crop_id, dp.species_patch(eppo, variety=variety, yield_kg_ha=yield_kg_ha))
         except (httpx.HTTPError, RuntimeError) as exc:
             logger.error("declare-past: write failed tenant=%s parcel=%s crop=%s: %s",
                          tenant_id, parcel_urn, crop_id, exc)

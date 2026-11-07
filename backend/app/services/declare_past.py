@@ -16,6 +16,7 @@ Invariants of the entity written here (consumers rely on each of them):
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -29,6 +30,14 @@ ROLLOVER_MONTH = 7
 _FACTS = ("actual", "declared")
 PARCEL_PREFIX = "urn:ngsi-ld:AgriParcel:"
 DECLARED_CAMPAIGN_ATTR = "nkz:declaredCampaign"
+DECLARED_YIELD_ATTR = "nkz:declaredYieldKgHa"
+# Platform unitCode for kg/ha is "C62" (see nkz/services/common/unit_codes.py:72; KGM is mass in kg).
+DECLARED_YIELD_UNIT = "C62"
+MAX_YIELD_KG_HA = 200_000.0
+MAX_VARIETY_LEN = 120
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_VARIETY_TERMS = ("https://nkz-os.org/ns/variety", "nkz:variety", "variety", "https://uri.etsi.org/ngsi-ld/default-context/variety")
+_YIELD_TERMS = ("https://nkz-os.org/ns/declaredYieldKgHa", "nkz:declaredYieldKgHa", "declaredYieldKgHa")
 
 
 class DeclareError(Exception):
@@ -43,6 +52,30 @@ def parse_species(raw) -> str:
     if not EPPO.match(value) or value == "FALLOW":
         raise DeclareError(422, "invalid_species", "eppo must be an EPPO code (5-6 letters or digits)")
     return value
+
+
+def parse_variety(raw) -> str | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise DeclareError(422, "invalid_variety", "variety must be a string")
+    val = raw.strip()
+    if not val:
+        return None
+    if len(val) > MAX_VARIETY_LEN or _CONTROL_CHARS.search(val):
+        raise DeclareError(422, "invalid_variety", "variety must be 1..120 printable characters")
+    return val
+
+
+def parse_yield_kg_ha(raw) -> float | None:
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw):
+        raise DeclareError(422, "invalid_yield", "yield_kg_ha must be a finite number")
+    val = float(raw)
+    if val <= 0 or val > MAX_YIELD_KG_HA:
+        raise DeclareError(422, "invalid_yield", "yield_kg_ha must be in (0, 200000]")
+    return round(val, 2)
 
 
 def parse_campaign(raw, today: date) -> int:
@@ -61,8 +94,16 @@ def declared_crop_id(tenant_id: str, parcel_urn: str, campaign: int) -> str:
     return f"urn:ngsi-ld:AgriCrop:{tenant_id}:{local}:declared-{campaign}"
 
 
-def build_entity(tenant_id: str, parcel_urn: str, campaign: int, eppo: str) -> dict:
-    return {
+def build_entity(
+    tenant_id: str,
+    parcel_urn: str,
+    campaign: int,
+    eppo: str,
+    *,
+    variety: str | None = None,
+    yield_kg_ha: float | None = None,
+) -> dict:
+    entity = {
         "id": declared_crop_id(tenant_id, parcel_urn, campaign),
         "type": "AgriCrop",
         "hasAgriParcel": {"type": "Relationship", "object": parcel_urn},
@@ -71,10 +112,30 @@ def build_entity(tenant_id: str, parcel_urn: str, campaign: int, eppo: str) -> d
         "species": {"type": "Property", "value": eppo},
         DECLARED_CAMPAIGN_ATTR: {"type": "Property", "value": campaign},
     }
+    if variety is not None:
+        entity["variety"] = {"type": "Property", "value": variety}
+    if yield_kg_ha is not None:
+        entity[DECLARED_YIELD_ATTR] = {"type": "Property", "value": yield_kg_ha, "unitCode": DECLARED_YIELD_UNIT}
+    return entity
 
 
-def species_patch(eppo: str) -> dict:
-    return {"species": {"type": "Property", "value": eppo}}
+def species_patch(eppo: str, *, variety: str | None = None, yield_kg_ha: float | None = None) -> dict:
+    patch = {"species": {"type": "Property", "value": eppo}}
+    if variety is not None:
+        patch["variety"] = {"type": "Property", "value": variety}
+    if yield_kg_ha is not None:
+        patch[DECLARED_YIELD_ATTR] = {"type": "Property", "value": yield_kg_ha, "unitCode": DECLARED_YIELD_UNIT}
+    return patch
+
+
+def attrs_to_clear(existing: dict | None, *, variety: str | None, yield_kg_ha: float | None) -> list[str]:
+    to_clear: list[str] = []
+    if existing is not None:
+        if variety is None and any(term in existing for term in _VARIETY_TERMS):
+            to_clear.append("variety")
+        if yield_kg_ha is None and any(term in existing for term in _YIELD_TERMS):
+            to_clear.append(DECLARED_YIELD_ATTR)
+    return to_clear
 
 
 def dated_conflict(cycles, campaign: int, own_id: str) -> str | None:
@@ -93,8 +154,17 @@ def dated_conflict(cycles, campaign: int, own_id: str) -> str | None:
 
 
 def list_declared(cycles) -> list[dict]:
-    rows = [{"campaign": cy.declared_campaign, "eppo": cy.species, "crop_id": cy.crop_id}
-            for cy in cycles if cy.declared_only and cy.status == "harvested" and cy.role == "main_crop"]
+    rows = [
+        {
+            "campaign": cy.declared_campaign,
+            "eppo": cy.species,
+            "crop_id": cy.crop_id,
+            "variety": cy.variety,
+            "yield_kg_ha": cy.declared_yield_kg_ha,
+        }
+        for cy in cycles
+        if cy.declared_only and cy.status == "harvested" and cy.role == "main_crop"
+    ]
     return sorted(rows, key=lambda r: (r["campaign"], r["crop_id"]))
 
 
