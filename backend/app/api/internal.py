@@ -2,9 +2,14 @@
 import hmac
 import logging
 import os
+import re
+from datetime import date
+
+import requests
 from fastapi import APIRouter, HTTPException, Request, Response
 from nkz_platform_sdk.notify_auth import accept_master_from_env, verify_notification
 
+from ..services import weekly_report
 from ..services.crop_cycles_runtime import enqueue
 from ..services.crop_cycles_writer import parcels_in_notification
 
@@ -134,3 +139,35 @@ async def suggested_operation(request: Request, body: dict):
     except Exception as exc:
         logger.error("Failed to create suggested operation: %s", exc)
         raise HTTPException(500, "Internal error creating suggested operation")
+
+
+_TENANT_RE = re.compile(r"^[a-z0-9_-]+$")
+
+
+@router.get("/weekly-report")
+def weekly_report_contribution(request: Request, tenant_id: str = "", week_start: str = ""):
+    """Pending planned operations for the tenant's weekly report (contract v1).
+
+    Auth: X-Internal-Service-Secret (hmac.compare_digest), fail-closed. An Orion
+    failure answers 502 so an outage never reads as "nothing pending".
+    """
+    secret = request.headers.get("X-Internal-Service-Secret", "")
+    expected = os.getenv("INTERNAL_SERVICE_SECRET", "")
+    if not expected or not hmac.compare_digest(secret.encode(), expected.encode()):
+        raise HTTPException(401, "Invalid internal service secret")
+    if not _TENANT_RE.match(tenant_id):
+        raise HTTPException(400, "tenant_id is required and must match ^[a-z0-9_-]+$")
+    try:
+        monday = date.fromisoformat(week_start)
+    except ValueError:
+        raise HTTPException(400, "week_start must be YYYY-MM-DD")
+    if monday.weekday() != 0:
+        raise HTTPException(400, "week_start must be a Monday")
+    try:
+        return weekly_report.build(tenant_id, monday)
+    except (RuntimeError, requests.RequestException) as exc:  # Orion-LD error or network failure
+        logger.error("weekly-report: Orion read failed tenant=%s: %s", tenant_id, exc)
+        raise HTTPException(502, "Orion-LD unavailable")
+    except Exception:  # noqa: BLE001 — a code bug is a 500, never a 200 with an empty list
+        logger.exception("weekly-report: unexpected error tenant=%s", tenant_id)
+        raise HTTPException(500, "Internal error")

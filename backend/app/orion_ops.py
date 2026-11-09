@@ -196,7 +196,9 @@ def query_operations(
     status: Optional[str] = None,
     work_order: Optional[str] = None,
     limit: int = 100,
+    offset: int = 0,
 ) -> list[dict]:
+    """Strict: any Orion error raises (never an empty list). ``offset`` is opt-in paging."""
     q_parts = []
     if parcel_id:
         q_parts.append(f'hasAgriParcel=="{parcel_id}"')
@@ -212,6 +214,8 @@ def query_operations(
     # query_entities in SyncOrionClient does not support options=keyValues,
     # so we use _session directly for backward compatibility with callers.
     params: dict[str, Any] = {"type": "AgriParcelOperation", "options": "keyValues", "limit": limit}
+    if offset:
+        params["offset"] = offset
     if q_parts:
         params["q"] = ";".join(q_parts)
 
@@ -224,6 +228,31 @@ def query_operations(
     if resp.status_code != 200:
         raise RuntimeError(f"Orion-LD query failed ({resp.status_code}): {resp.text}")
     return resp.json()
+
+
+def query_parcel_names(tenant_id: str, page: int = 1000) -> dict[str, Optional[str]]:
+    """Map every AgriParcel id of the tenant to its name (or None). Strict: Orion errors raise."""
+    client = _get_client(tenant_id)
+    names: dict[str, Optional[str]] = {}
+    offset = 0
+    while True:
+        resp = client._session.get(
+            client._url("/ngsi-ld/v1/entities"),
+            params={"type": "AgriParcel", "options": "keyValues", "attrs": "name",
+                    "limit": page, "offset": offset},
+            headers=client._headers("application/json"),
+            timeout=client.timeout,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Orion-LD parcel query failed ({resp.status_code}): {resp.text}")
+        rows = resp.json()
+        for row in rows:
+            name = row.get("name")
+            if row.get("id"):
+                names[row["id"]] = name if isinstance(name, str) and name.strip() else None
+        if len(rows) < page:
+            return names
+        offset += page
 
 
 def extrapolate_to_full_parcel(tenant_id: str, operation_id: str, parcel_area_ha: float) -> dict:
