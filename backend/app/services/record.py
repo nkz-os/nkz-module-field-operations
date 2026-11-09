@@ -128,11 +128,16 @@ def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: s
     return _hit(cycle, crops)
 
 
-def current_cycle(parcel_urn: str, crops: list[dict], ops: list[dict], day: date, today: date) -> CropCycle | None:
-    """The one crop standing on ``day``, preferring the main crop; None when none or several remain."""
+def current_cycle(parcel_urn: str, crops: list[dict], ops: list[dict], day: date, today: date,
+                  sown_only: bool = False) -> CropCycle | None:
+    """The one crop standing on ``day``, preferring the main crop; None when none or several remain.
+
+    ``sown_only`` keeps cycles whose start is a fact (sown or planted), not a plan."""
     timeline = resolve_crop_cycles(parcel_urn, crops, ops, max(today, day))
     standing = [cy for cy in timeline.cycles
                 if cy.start.date and cy.start.date <= day and (cy.end.date is None or day <= cy.end.date)]
+    if sown_only:
+        standing = [cy for cy in standing if cy.start.provenance in _FACTS]
     main = [cy for cy in standing if cy.role == "main_crop"]
     standing = main or standing
     return standing[0] if len(standing) == 1 else None

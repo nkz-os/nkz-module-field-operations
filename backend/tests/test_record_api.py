@@ -521,3 +521,24 @@ def test_fact_with_client_id_is_idempotent(env):
                                 "hasAgriParcel": {"object": P}, "startedAt": {"value": "2026-11-10T12:00:00Z"}}
     r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=1, client_id=FCID))
     assert r.status_code == 200 and r.json()["duplicate"] is True and len(env["created"]) == 1
+
+
+def test_huge_rate_is_a_422_not_a_500(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("fertilization", fertilizerType="x", rate=1e308, rateUnit="t/ha"))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_number"
+
+
+def test_planned_only_cycle_binds_fertilization_but_not_hay(env):
+    env["orion"] = FakeOrion([PLANNED])
+    day = "2026-11-15"
+    r = TestClient(app).post(URL, headers=H, json=_fact("fertilization", fertilizerType="x", rate=1, date=day))
+    assert r.status_code == 201 and r.json()["crop_id"] == PLANNED["id"]
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking", date=day))
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "no_crop_on_date"
+
+
+def test_non_terminating_tillage_does_not_reconcile(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="ploughing"))
+    assert r.status_code == 201 and r.json()["reconciled"] is False and env["reconciled"] == []

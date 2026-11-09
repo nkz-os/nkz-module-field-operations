@@ -171,13 +171,14 @@ async def _fact_crop(client, parcel_urn: str, day: date, today: date, required: 
     """The single standing crop (best effort); only haymaking and baling cannot do without it."""
     try:
         _, crops, ops = await load_crop_data(client, parcel_urn)
-        return current_cycle(parcel_urn, crops, ops, day, today)
     except Exception as exc:  # noqa: BLE001 — a watering never waits for the crop read
         if required:
             logger.warning("record: crop data unavailable parcel=%s: %s", parcel_urn, exc)
             raise HTTPException(status_code=503, detail={"code": "crop_data_unavailable", "detail": str(exc)})
         logger.warning("record: crop lookup failed, recording without hasAgriCrop parcel=%s: %s", parcel_urn, exc)
         return None
+    # Hay and bales belong to a crop that is really standing; the rest may belong to the coming one.
+    return current_cycle(parcel_urn, crops, ops, day, today, sown_only=required)
 
 
 async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, body: dict):
@@ -233,7 +234,7 @@ async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, bo
                     cycle.crop_id if cycle else None, entity.get("id"))
 
         reconciled = False
-        if op_type == "tillage" and config.CROP_CYCLES_WRITER_ENABLED:
+        if attrs.get("tillageType") in ("roller_crimper", "mowing") and config.CROP_CYCLES_WRITER_ENABLED:
             # Rolling or mowing a cover ends it in the SDK: show it at once.
             try:
                 await reconcile_parcel(client, tenant_id, parcel_urn)

@@ -39,19 +39,27 @@ class RecordError(Exception):
         self.code, self.detail, self.status = code, detail, status
 
 
+MAX_VALUE = 1e9
+
+
 def _round(value: float) -> float:
-    return round(value, _DECIMALS)
+    """Rounded to 3 decimals; a value that rounds to 0 or leaves the range is refused."""
+    out = round(value, _DECIMALS)
+    if not math.isfinite(out) or out <= 0 or out > MAX_VALUE:
+        raise RecordError("invalid_number", f"value must be between 0.001 and {MAX_VALUE:g}")
+    return out
 
 
 def _number(field: str, raw) -> float:
+    # Same rule as _positive in api/record.py (that module imports this one), plus an upper bound.
     if isinstance(raw, bool):
         raise RecordError("invalid_number", f"{field} must be a positive number")
     try:
         value = float(str(raw).replace(",", "."))
     except ValueError:
         value = float("nan")
-    if not math.isfinite(value) or value <= 0:
-        raise RecordError("invalid_number", f"{field} must be a positive number")
+    if not math.isfinite(value) or value <= 0 or value > MAX_VALUE:
+        raise RecordError("invalid_number", f"{field} must be a positive number of at most {MAX_VALUE:g}")
     return value
 
 

@@ -134,3 +134,11 @@ def test_notes_limit():
 
 def test_sowing_is_not_handled_here():
     assert code("sowing", {}) == "unsupported_type"
+
+
+def test_huge_and_tiny_numbers_are_refused():
+    assert code("fertilization", {"fertilizerType": "x", "rate": 1e308, "rateUnit": "t/ha"}) == "invalid_number"
+    assert code("fertilization", {"fertilizerType": "x", "rate": 5e8, "rateUnit": "t/ha"}) == "invalid_number"
+    assert code("irrigation", {"waterPerHectare": 0.0004}) == "invalid_number"
+    assert code("irrigation", {"waterPerHectare": 2e9}) == "invalid_number"
+    assert code("irrigation", {"waterPerHectare": "inf"}) == "invalid_number"
