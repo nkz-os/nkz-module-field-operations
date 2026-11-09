@@ -46,7 +46,7 @@ def _round(value: float) -> float:
     """Rounded to 3 decimals; a value that rounds to 0 or leaves the range is refused."""
     out = round(value, _DECIMALS)
     if not math.isfinite(out) or out <= 0 or out > MAX_VALUE:
-        raise RecordError("invalid_number", f"value must be between 0.001 and {MAX_VALUE:g}")
+        raise RecordError("invalid_number", "value must be a positive number")
     return out
 
 

@@ -167,7 +167,7 @@ async def _fact_parcel(client, parcel_urn: str) -> dict:
         raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
 
 
-async def _fact_crop(client, parcel_urn: str, day: date, today: date, required: bool):
+async def _fact_crop(client, tenant_id: str, parcel_urn: str, day: date, today: date, required: bool):
     """The single standing crop (best effort); only haymaking and baling cannot do without it."""
     try:
         _, crops, ops = await load_crop_data(client, parcel_urn)
@@ -175,10 +175,18 @@ async def _fact_crop(client, parcel_urn: str, day: date, today: date, required: 
         if required:
             logger.warning("record: crop data unavailable parcel=%s: %s", parcel_urn, exc)
             raise HTTPException(status_code=503, detail={"code": "crop_data_unavailable", "detail": str(exc)})
-        logger.warning("record: crop lookup failed, recording without hasAgriCrop parcel=%s: %s", parcel_urn, exc)
+        logger.exception("record: crop lookup failed, recording without hasAgriCrop tenant=%s parcel=%s",
+                         tenant_id, parcel_urn)
         return None
     # Hay and bales belong to a crop that is really standing; the rest may belong to the coming one.
-    return current_cycle(parcel_urn, crops, ops, day, today, sown_only=required)
+    if required:
+        return current_cycle(parcel_urn, crops, ops, day, today, sown_only=True)
+    try:
+        return current_cycle(parcel_urn, crops, ops, day, today)
+    except Exception:  # noqa: BLE001 — best effort: loud, but the record stands
+        logger.exception("record: crop resolution failed, recording without hasAgriCrop tenant=%s parcel=%s",
+                         tenant_id, parcel_urn)
+        return None
 
 
 async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, body: dict):
@@ -204,7 +212,7 @@ async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, bo
         if day > today + timedelta(days=1):
             raise HTTPException(status_code=409, detail={"code": "future_date"})
         needs_crop = op_type in ("haymaking", "baling")
-        cycle = await _fact_crop(client, parcel_urn, day, today, needs_crop)
+        cycle = await _fact_crop(client, tenant_id, parcel_urn, day, today, needs_crop)
         if needs_crop:
             if cycle is None or not cycle.species:
                 raise HTTPException(status_code=409, detail={"code": "no_crop_on_date"})

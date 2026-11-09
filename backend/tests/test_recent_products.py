@@ -46,7 +46,7 @@ def get(**params):
 def test_invalid_kind_is_400(env):
     for p in ({}, {"kind": "irrigation"}):
         r = get(**p)
-        assert r.status_code == 400 and r.json()["detail"]["error"] == "invalid_kind"
+        assert r.status_code == 400 and r.json()["detail"]["code"] == "invalid_kind"
     assert env["calls"] == []
 
 

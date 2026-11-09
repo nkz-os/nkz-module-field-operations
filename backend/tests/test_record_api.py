@@ -538,7 +538,37 @@ def test_planned_only_cycle_binds_fertilization_but_not_hay(env):
     assert r.status_code == 409 and r.json()["detail"]["code"] == "no_crop_on_date"
 
 
-def test_non_terminating_tillage_does_not_reconcile(env):
+@pytest.mark.parametrize("kind,expected", [("ploughing", False), ("roller_crimper", True), ("mowing", True)])
+def test_only_terminating_tillage_reconciles(env, kind, expected):
     env["orion"] = FakeOrion([])
-    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="ploughing"))
-    assert r.status_code == 201 and r.json()["reconciled"] is False and env["reconciled"] == []
+    assert route.config.CROP_CYCLES_WRITER_ENABLED is True
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType=kind))
+    assert r.status_code == 201 and r.json()["reconciled"] is expected
+    assert env["reconciled"] == ([("tenant-a", P)] if expected else [])
+
+
+def test_cycle_resolution_failure_records_without_relationship_and_logs(env, monkeypatch, caplog):
+    env["orion"] = FakeOrion([ACTIVE])
+    def boom(*a, **k):
+        raise ValueError("bug")
+    monkeypatch.setattr(route, "current_cycle", boom)
+    with caplog.at_level("ERROR"):
+        r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=100))
+    assert r.status_code == 201 and r.json()["crop_id"] is None
+    assert "crop_id" not in env["created"][0][1]
+    assert any("crop resolution failed" in m and "tenant-a" in m for m in caplog.messages)
+
+
+def test_haymaking_with_failing_loader_is_503(env):
+    env["orion"] = _CropFail([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking"))
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "crop_data_unavailable"
+
+
+def test_haymaking_binds_to_sown_cover_not_planned_main(env):
+    planned_main = dict(PLANNED, sowingWindowStart="2026-11-01", expectedTerminationDate="2027-07-31")
+    cover = dict(ACTIVE, id="urn:ngsi-ld:AgriCrop:t:p1:cover", cropRole="cover_crop", species="VICSA")
+    env["orion"] = FakeOrion([planned_main, cover])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking", date="2026-11-15"))
+    assert r.status_code == 201, r.text
+    assert r.json()["crop_id"] == cover["id"] and env["created"][0][1]["cropType"] == "VICSA"

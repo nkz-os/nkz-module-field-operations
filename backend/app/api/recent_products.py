@@ -14,11 +14,11 @@ router = APIRouter(prefix="/api/field-operations", tags=["recent-products"])
 async def get_recent_products(request: Request, kind: str = Query(default=""),
                               limit: str = Query(default="10")) -> dict:
     if kind not in svc.KINDS:
-        raise HTTPException(status_code=400, detail={"code": "invalid_kind", "error": "invalid_kind"})
+        raise HTTPException(status_code=400, detail={"code": "invalid_kind"})
     try:
         n = min(50, max(1, int(limit)))
     except ValueError:
-        raise HTTPException(status_code=400, detail={"code": "invalid_limit", "error": "invalid_limit"})
+        raise HTTPException(status_code=400, detail={"code": "invalid_limit"})
     tenant_id = request.state.tenant_id
     try:
         products = await asyncio.to_thread(svc.recent_products, tenant_id, kind, n)
