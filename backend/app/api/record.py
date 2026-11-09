@@ -120,7 +120,7 @@ async def _lookup(client, tenant_id: str, entity_id: str) -> dict | None:
         return await existing_record(client, entity_id)
     except (httpx.HTTPError, RuntimeError) as exc:
         logger.error("record: client_id lookup failed tenant=%s entity=%s: %s", tenant_id, entity_id, exc)
-        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable"})
 
 
 def _duplicate(entity: dict, body: dict, day: date, op_type: str, tenant_id: str):
