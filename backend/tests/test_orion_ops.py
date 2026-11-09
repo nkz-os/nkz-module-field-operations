@@ -5,6 +5,7 @@ import pytest
 import requests
 
 from app.orion_ops import (
+    EntityAlreadyExists,
     create_operation,
     get_entity,
     update_entity_attrs,
@@ -81,6 +82,26 @@ class TestCreateOperation:
 
         # The returned dict matches the entity sent
         assert result is entity
+
+    def test_create_operation_uses_the_given_entity_id(self, mock_client):
+        eid = "urn:ngsi-ld:AgriParcelOperation:t:abc"
+        result = create_operation("t", "parcel:1", "spraying", "WO", "op", entity_id=eid)
+        assert result["id"] == eid
+        assert mock_client.create_entity.call_args[0][0]["id"] == eid
+
+    @pytest.mark.parametrize("status,text", [(409, "AlreadyExists"), (422, '{"title":"Entity already exists"}')])
+    def test_create_operation_flags_an_existing_entity(self, mock_client, status, text):
+        resp = MagicMock(status_code=status, text=text)
+        mock_client.create_entity.side_effect = requests.HTTPError(response=resp)
+        with pytest.raises(EntityAlreadyExists):
+            create_operation("t", "parcel:1", "spraying", "WO", "op", entity_id="urn:x")
+
+    def test_create_operation_other_failures_stay_runtime_errors(self, mock_client):
+        resp = MagicMock(status_code=500, text="boom")
+        mock_client.create_entity.side_effect = requests.HTTPError(response=resp)
+        with pytest.raises(RuntimeError) as ei:
+            create_operation("t", "parcel:1", "spraying", "WO", "op")
+        assert not isinstance(ei.value, EntityAlreadyExists)
 
     def test_create_operation_keeps_unit_code_on_extra_attr(self, mock_client):
         create_operation(

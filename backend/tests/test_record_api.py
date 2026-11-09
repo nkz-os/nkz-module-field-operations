@@ -1,4 +1,5 @@
 """POST /operations/record and GET /parcels: record a past sowing or harvest from the UI."""
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -18,8 +19,15 @@ class FakeOrion:
         self.parcel = {"id": P, "type": "AgriParcel", "name": "Soto Alto", "area": 12.5}
         self.crops, self.ops = list(crops), list(ops)
         self.parcels = parcels if parcels is not None else [self.parcel]
+        self.stored, self.gets = {}, []
 
     async def get_entity(self, eid, options=None):
+        self.gets.append(eid)
+        if eid in self.stored:
+            return self.stored[eid]
+        if eid.startswith("urn:ngsi-ld:AgriParcelOperation:"):
+            req = httpx.Request("GET", "http://orion/x")
+            raise httpx.HTTPStatusError("nf", request=req, response=httpx.Response(404, request=req))
         return self.parcel
 
     async def query_entities(self, type=None, q=None, limit=100, offset=0, attrs=None, options=None):
@@ -276,3 +284,99 @@ def test_parcel_list_broker_failure_is_a_503(env):
     env["orion"] = Down()
     r = TestClient(app).get("/api/field-operations/parcels", headers=H)
     assert r.status_code == 503 and r.json()["detail"]["code"] == "crop_data_unavailable"
+
+
+CID = "3f2b8c1e-5d4a-4e7b-9a1c-0d2e4f6a8b1c"
+DET = f"urn:ngsi-ld:AgriParcelOperation:tenant-a:{CID}"
+
+
+def _stored(**kw):
+    e = {"id": DET, "type": "AgriParcelOperation",
+         "hasAgriParcel": {"type": "Relationship", "object": P},
+         "operationType": {"type": "Property", "value": "sowing"},
+         "startedAt": {"type": "Property", "value": {"@type": "DateTime", "@value": "2026-11-10T12:00:00Z"}}}
+    e.update(kw)
+    return e
+
+
+@pytest.mark.parametrize("cid", ["nope", "3f2b8c1e-5d4a-1e7b-9a1c-0d2e4f6a8b1c", 5, ""])
+def test_bad_client_id_is_422(env, cid):
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=cid))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_client_id"
+    assert env["created"] == []
+
+
+def test_client_id_makes_a_deterministic_entity_id_lowercased(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID.upper()))
+    assert r.status_code == 201, r.text
+    assert env["created"][0][1]["entity_id"] == DET
+    body = r.json()
+    assert body["operation_id"] == "urn:ngsi-ld:AgriParcelOperation:tenant-a:abc"
+    assert body["duplicate"] is False and body["operation_type"] == "sowing"
+    assert body["parcel_id"] == P and body["date"] == "2026-11-10"
+
+
+def test_without_client_id_no_entity_id_and_no_lookup(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow())
+    assert r.status_code == 201
+    assert "entity_id" not in env["created"][0][1]
+    assert not any(g.startswith("urn:ngsi-ld:AgriParcelOperation:") for g in env["orion"].gets)
+
+
+def test_retry_returns_the_stored_record_without_matcher_or_create(env, monkeypatch):
+    env["orion"].stored[DET] = _stored(hasAgriCrop={"type": "Relationship", "object": PLANNED["id"]})
+
+    def boom(*a, **k):
+        raise AssertionError("matcher must not run")
+    monkeypatch.setattr(route, "match_record", boom)
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"operation_id": DET, "operation_type": "sowing", "parcel_id": P, "date": "2026-11-10",
+                        "duplicate": True, "crop_id": PLANNED["id"], "species": None, "role": None,
+                        "campaign": None, "harvest_campaign": None, "harvest_campaign_label": None,
+                        "reconciled": False}
+    assert env["created"] == [] and env["reconciled"] == []
+
+
+def test_retry_maps_stored_uprooting_back_and_omits_missing_crop(env):
+    env["orion"].stored[DET] = _stored(operationType={"type": "Property", "value": "tillage"},
+                                       tillageType={"type": "Property", "value": "uprooting"})
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200
+    assert r.json()["operation_type"] == "uprooting" and r.json()["crop_id"] is None
+
+
+def test_retry_with_a_different_body_returns_the_existing_record(env, caplog):
+    env["orion"].stored[DET] = _stored()
+    with caplog.at_level("WARNING"):
+        r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID, seedingRate=999, date="2026-11-11"))
+    assert r.status_code == 200 and r.json()["date"] == "2026-11-10" and r.json()["duplicate"] is True
+    assert any("client_id" in m and "differ" in m for m in caplog.messages)
+    assert "999" not in caplog.text
+
+
+def test_create_hitting_an_existing_entity_rereads_and_answers_duplicate(env, monkeypatch):
+    orion = env["orion"]
+
+    def clash(tenant_id, **kw):
+        orion.stored[DET] = _stored()  # the concurrent request landed first
+        raise route.EntityAlreadyExists("exists")
+    monkeypatch.setattr(route, "create_operation", clash)
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200 and r.json()["duplicate"] is True and r.json()["operation_id"] == DET
+
+
+def test_lookup_failure_other_than_404_is_503(env):
+    async def broken(eid, options=None):
+        raise httpx.ConnectError("down")
+    env["orion"].get_entity = broken
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "store_unavailable"
+    assert env["created"] == []
+
+
+def test_notes_over_500_chars_is_422(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(notes="x" * 501))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_notes"
+    assert env["created"] == []
+    assert TestClient(app).post(URL, headers=H, json=_sow(notes="x" * 500)).status_code == 201

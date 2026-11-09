@@ -12,8 +12,10 @@ import math
 import re
 from datetime import date
 
+import httpx
 import requests
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 from nkz_platform_sdk.crop_cycles import UPROOTING, resolve_crop_cycles
 from nkz_platform_sdk.crop_timeline import (
     CropDataUnavailable,
@@ -26,7 +28,7 @@ from nkz_platform_sdk.orion import OrionClient
 
 from .. import config
 from ..config import REQUIRED_FIELDS
-from ..orion_ops import create_operation
+from ..orion_ops import EntityAlreadyExists, create_operation
 from ..services.crop_cycles_writer import reconcile_parcel
 from ..services.record import RECORDABLE, match_record
 from ..state_machine import validate_sowing_method
@@ -39,6 +41,8 @@ _CLOSED = ("harvested", "terminated")
 _CONCURRENCY = 5
 _PARCEL = re.compile(r"^(urn:ngsi-ld:AgriParcel:)?[A-Za-z0-9._:-]{1,200}$")
 _NUMBERS = ("seedingRate", "harvestedWeight")
+_NOTES_MAX = 500
+_UUID4 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 
 
 def _orion(tenant_id: str) -> OrionClient:
@@ -68,6 +72,61 @@ def _parse_day(raw) -> date:
         return date.fromisoformat(str(raw))
     except ValueError:
         _unprocessable("invalid_date", "date must be YYYY-MM-DD")
+
+
+def _value(attr):
+    return attr.get("value") if isinstance(attr, dict) else attr
+
+
+def _first(entity: dict, *names):
+    for name in names:
+        if name in entity:
+            return entity[name]
+    return None
+
+
+def _stored_view(entity: dict) -> dict:
+    """The 200 answer for a record that already exists, from what the entity keeps."""
+    op_type = _value(entity.get("operationType"))
+    if op_type == "tillage" and _value(entity.get("tillageType")) == UPROOTING:
+        op_type = "uprooting"
+    parcel = _first(entity, "hasAgriParcel")
+    crop = _first(entity, "hasAgriCrop")
+    started = _value(entity.get("startedAt"))
+    if isinstance(started, dict):
+        started = started.get("@value")
+    return {"operation_id": entity.get("id"), "operation_type": op_type,
+            "parcel_id": parcel.get("object") if isinstance(parcel, dict) else parcel,
+            "date": str(started)[:10] if started else None, "duplicate": True,
+            "crop_id": (crop.get("object") if isinstance(crop, dict) else crop) if crop else None,
+            "species": None, "role": None, "campaign": None, "harvest_campaign": None,
+            "harvest_campaign_label": None, "reconciled": False}
+
+
+async def existing_record(client, entity_id: str) -> dict | None:
+    """The stored entity for a client id, or None when it was never written."""
+    try:
+        return await client.get_entity(entity_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return None
+        raise
+
+
+async def _lookup(client, tenant_id: str, entity_id: str) -> dict | None:
+    try:
+        return await existing_record(client, entity_id)
+    except (httpx.HTTPError, RuntimeError) as exc:
+        logger.error("record: client_id lookup failed tenant=%s entity=%s: %s", tenant_id, entity_id, exc)
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+
+
+def _duplicate(entity: dict, body: dict, day: date, op_type: str, tenant_id: str):
+    view = _stored_view(entity)
+    if view["operation_type"] != op_type or view["date"] != day.isoformat():
+        logger.warning("record: client_id reused with a body that differs from the stored record "
+                       "tenant=%s entity=%s", tenant_id, entity.get("id"))
+    return JSONResponse(status_code=200, content=view)
 
 
 async def _crop_data(client, parcel_urn: str):
@@ -106,9 +165,23 @@ async def record_operation(request: Request, body: dict):
         if body.get(field) not in (None, ""):
             _positive(field, body[field])
 
+    notes = body.get("notes")
+    if notes is not None and (not isinstance(notes, str) or len(notes) > _NOTES_MAX):
+        _unprocessable("invalid_notes", f"notes must be text of at most {_NOTES_MAX} characters")
+    client_id = body.get("client_id")
+    if client_id is not None:
+        client_id = client_id.lower() if isinstance(client_id, str) else client_id
+        if not isinstance(client_id, str) or not _UUID4.match(client_id):
+            _unprocessable("invalid_client_id", "client_id must be a UUIDv4")
+    entity_id = f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{client_id}" if client_id else None
+
     parcel_urn = normalize_parcel_urn(str(body["parcel_id"]))
     client = _orion(tenant_id)
     try:
+        if entity_id:
+            stored = await _lookup(client, tenant_id, entity_id)
+            if stored:
+                return _duplicate(stored, body, day, op_type, tenant_id)
         parcel, crops, ops = await _crop_data(client, parcel_urn)
         match = match_record(parcel_urn, crops, ops, op_type, day, _today(parcel))
         if not match.ok:
@@ -137,13 +210,21 @@ async def record_operation(request: Request, body: dict):
             _unprocessable("missing_fields", f"missing: {', '.join(missing)}")
 
         stamp = f"{day.isoformat()}T12:00:00Z"  # the day is the fact; noon keeps it in every time zone
+        extra = {"entity_id": entity_id} if entity_id else {}
         try:
             entity = await asyncio.to_thread(
                 create_operation, tenant_id,
                 parcel_id=parcel_urn, operation_type=stored_type, work_order=f"REG-{day.isoformat()}",
                 operator=user_id, data_source="manual", status="completed",
-                startedAt=stamp, endedAt=stamp, **attrs,
+                startedAt=stamp, endedAt=stamp, **extra, **attrs,
             )
+        except EntityAlreadyExists:
+            # A concurrent retry wrote it first: answer with what is stored.
+            stored = await _lookup(client, tenant_id, entity_id) if entity_id else None
+            if not stored:
+                raise HTTPException(status_code=503, detail={"code": "store_unavailable",
+                                                             "detail": "entity exists but cannot be read"})
+            return _duplicate(stored, body, day, op_type, tenant_id)
         except (RuntimeError, requests.RequestException) as exc:
             # Nothing was stored; a retry after a lost answer is refused as already_recorded.
             logger.error("record: write failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
@@ -159,7 +240,8 @@ async def record_operation(request: Request, body: dict):
                 reconciled = True
             except Exception as exc:  # noqa: BLE001 — the record stands; the sweep catches up
                 logger.warning("record: reconcile failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
-        return {"operation_id": entity.get("id"), "crop_id": match.crop_id, "species": match.species,
+        return {"operation_id": entity.get("id"), "operation_type": op_type, "parcel_id": parcel_urn,
+                "date": day.isoformat(), "duplicate": False, "crop_id": match.crop_id, "species": match.species,
                 "role": match.role, "campaign": match.campaign, "harvest_campaign": match.harvest_campaign,
                 "harvest_campaign_label": match.harvest_campaign_label,
                 "reconciled": reconciled}

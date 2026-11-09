@@ -14,6 +14,10 @@ from .config import VALID_OPERATION_TYPES
 logger = logging.getLogger(__name__)
 
 
+class EntityAlreadyExists(RuntimeError):
+    """Orion refused a create because the entity id is taken."""
+
+
 def _build_operation_id(tenant_id: str) -> str:
     return f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{uuid.uuid4().hex[:12]}"
 
@@ -34,6 +38,7 @@ def create_operation(
     operator: str,
     data_source: str = "manual",
     status: str = "planned",
+    entity_id: Optional[str] = None,
     **extra_attrs,
 ) -> dict:
     """Create an AgriParcelOperation. ``status="completed"`` records one that already
@@ -41,7 +46,7 @@ def create_operation(
     if operation_type not in VALID_OPERATION_TYPES:
         raise ValueError(f"Invalid operationType: {operation_type}")
 
-    entity_id = _build_operation_id(tenant_id)
+    entity_id = entity_id or _build_operation_id(tenant_id)
     now = datetime.now(timezone.utc).isoformat()
     client = _get_client(tenant_id)
 
@@ -90,6 +95,9 @@ def create_operation(
     try:
         client.create_entity(entity)
     except requests.HTTPError as e:
+        code, text = e.response.status_code, e.response.text or ""
+        if code == 409 or (code == 422 and "already exist" in text.lower()):
+            raise EntityAlreadyExists(f"Orion-LD entity already exists ({code})") from e
         raise RuntimeError(
             f"Orion-LD create failed ({e.response.status_code}): {e.response.text}"
         ) from e
