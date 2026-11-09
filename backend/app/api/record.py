@@ -92,8 +92,9 @@ def _stored_view(entity: dict) -> dict:
     op_type = _value(entity.get("operationType"))
     if op_type == "tillage" and _value(entity.get("tillageType")) == UPROOTING:
         op_type = "uprooting"
-    parcel = _first(entity, "hasAgriParcel")
-    crop = _first(entity, "hasAgriCrop")
+    # The broker may compact these back under the legacy alias (same IRI in the context).
+    parcel = _first(entity, "hasAgriParcel", "refAgriParcel")
+    crop = _first(entity, "hasAgriCrop", "refAgriCrop")
     started = _value(entity.get("startedAt"))
     if isinstance(started, dict):
         started = started.get("@value")
