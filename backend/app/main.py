@@ -14,6 +14,7 @@ from .api.cue_bridge import router as cue_router
 from .api.internal import router as internal_router
 from .api.plan_summary import router as plan_summary_router
 from .api.record import router as record_router
+from .api.recent_products import router as recent_products_router
 from .api.plantations import router as plantations_router
 from .api.declared_crops import router as declared_crops_router
 from .services.timeout_worker import check_stale_operations
@@ -57,6 +58,7 @@ _user = [Depends(gateway_identity)]
 app.include_router(operations_router, dependencies=_user)
 app.include_router(cue_router, dependencies=_user)
 app.include_router(record_router, dependencies=_user)
+app.include_router(recent_products_router, dependencies=_user)
 app.include_router(plantations_router, dependencies=_user)
 app.include_router(declared_crops_router, dependencies=_user)
 app.include_router(internal_router)

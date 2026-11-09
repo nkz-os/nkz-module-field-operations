@@ -264,6 +264,42 @@ def query_parcel_names(tenant_id: str, page: int = 1000) -> dict[str, Optional[s
         offset += page
 
 
+def query_completed_operations_since(
+    tenant_id: str,
+    operation_type: str,
+    since_iso: str,
+    page_size: int = 500,
+    max_pages: int = 10,
+) -> list[dict]:
+    """Completed operations of one type that ended at or after ``since_iso`` (keyValues).
+
+    Pages by offset and stops at the first short page or after ``max_pages``. DateTime
+    attributes need the ``[@value]`` form in q: a bare ``endedAt>=`` silently returns 0.
+    """
+    client = _get_client(tenant_id)
+    q = (f'operationType=="{operation_type}";status=="completed";'
+         f'endedAt[@value]>="{since_iso}"')
+    out: list[dict] = []
+    for page in range(max_pages):
+        params: dict[str, Any] = {
+            "type": "AgriParcelOperation", "options": "keyValues", "q": q,
+            "limit": page_size, "offset": page * page_size,
+        }
+        resp = client._session.get(
+            client._url("/ngsi-ld/v1/entities"),
+            params=params,
+            headers=client._headers("application/json"),
+            timeout=client.timeout,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Orion-LD query failed ({resp.status_code}): {resp.text}")
+        rows = resp.json()
+        out.extend(rows)
+        if len(rows) < page_size:
+            break
+    return out
+
+
 def extrapolate_to_full_parcel(tenant_id: str, operation_id: str, parcel_area_ha: float) -> dict:
     entity = get_entity(tenant_id, operation_id)
     if not entity:
