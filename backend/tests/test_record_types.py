@@ -142,3 +142,17 @@ def test_huge_and_tiny_numbers_are_refused():
     assert code("irrigation", {"waterPerHectare": 0.0004}) == "invalid_number"
     assert code("irrigation", {"waterPerHectare": 2e9}) == "invalid_number"
     assert code("irrigation", {"waterPerHectare": "inf"}) == "invalid_number"
+
+
+def test_partial_composition_writes_question_marks():
+    a = build_attrs("fertilization", {"fertilizerType": "x", "rate": 1, "composition": {"n": 7}})
+    assert a["fertilizerComposition"] == "7-?-?" and a["nitrogenContent"] == {"value": 7.0, "unitCode": "P1"}
+    assert "phosphorusPentoxideContent" not in a and "potassiumOxideContent" not in a
+
+
+def test_organic_flag():
+    base = {"fertilizerType": "x", "rate": 1}
+    assert build_attrs("fertilization", {**base, "organic": True})["organicFertilizer"] is True
+    assert build_attrs("fertilization", {**base, "organic": False})["organicFertilizer"] is False
+    assert "organicFertilizer" not in build_attrs("fertilization", base)
+    assert code("fertilization", {**base, "organic": "yes"}) == "invalid_choice"

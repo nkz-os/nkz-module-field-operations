@@ -34,9 +34,10 @@ def test_sowing_far_outside_the_window_is_refused():
     assert not m.ok and m.reason == "no_planned_crop"
 
 
-def test_future_date_is_refused():
-    m = match_record(P, [PLANNED], [], "sowing", date(2026, 11, 21), TODAY)
+def test_future_date_is_refused_after_one_day_of_margin():
+    m = match_record(P, [PLANNED], [], "sowing", date(2026, 11, 22), TODAY)
     assert not m.ok and m.reason == "future_date"
+    assert match_record(P, [PLANNED], [], "sowing", date(2026, 11, 21), TODAY).reason != "future_date"
 
 
 def test_second_sowing_of_the_same_crop_is_refused():

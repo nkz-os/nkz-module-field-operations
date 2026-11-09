@@ -572,3 +572,26 @@ def test_haymaking_binds_to_sown_cover_not_planned_main(env):
     r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking", date="2026-11-15"))
     assert r.status_code == 201, r.text
     assert r.json()["crop_id"] == cover["id"] and env["created"][0][1]["cropType"] == "VICSA"
+
+
+def test_terminating_tillage_binds_to_the_standing_cover(env):
+    cover = dict(ACTIVE, id="urn:ngsi-ld:AgriCrop:t:p1:cover", cropRole="cover_crop", species="VICSA")
+    env["orion"] = FakeOrion([PLANNED, cover])
+    d = "2026-11-15"
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="roller_crimper", date=d))
+    assert r.status_code == 201 and r.json()["crop_id"] == cover["id"]
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="ploughing", date=d))
+    assert r.json()["crop_id"] == PLANNED["id"]
+
+
+def test_old_types_get_the_one_day_margin(env):
+    ok = TestClient(app).post(URL, headers=H, json=_sow(date="2026-11-21"))
+    assert ok.status_code != 409 or ok.json()["detail"]["code"] != "future_date"
+    r = TestClient(app).post(URL, headers=H, json=_sow(date="2026-11-22"))
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "future_date"
+
+
+def test_new_path_503s_carry_no_broker_text(env):
+    env["orion"] = _CropFail([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking"))
+    assert r.status_code == 503 and r.json()["detail"] == {"code": "crop_data_unavailable"}

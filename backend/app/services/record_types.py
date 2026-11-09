@@ -131,6 +131,11 @@ def _fertilization(body: dict) -> dict:
         if not isinstance(assumed, bool):
             raise RecordError("invalid_choice", "densityAssumed must be true or false")
         attrs["fertilizerDensityAssumed"] = assumed
+    organic = body.get("organic")
+    if organic is not None:
+        if not isinstance(organic, bool):
+            raise RecordError("invalid_choice", "organic must be true or false")
+        attrs["organicFertilizer"] = organic
     attrs["fertilizerRate"] = _round(rate * factor)  # always kg/ha: what carbon and FaST read
 
     composition = body.get("composition")
@@ -146,7 +151,8 @@ def _fertilization(body: dict) -> dict:
             raise RecordError("invalid_fertilizer_composition", str(exc)) from exc
         attrs.update(normalized)
         if mapped:
-            grade = [f"{normalized.get(n, {'value': 0})['value']:g}" for n in (
+            # A nutrient not given is "?", as the web grade (formatGrade) writes it, never 0.
+            grade = [f"{normalized[n]['value']:g}" if n in normalized else "?" for n in (
                 "nitrogenContent", "phosphorusPentoxideContent", "potassiumOxideContent")]
             attrs["fertilizerComposition"] = "-".join(grade)
     return attrs

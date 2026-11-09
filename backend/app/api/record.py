@@ -43,6 +43,7 @@ _CONCURRENCY = 5
 _PARCEL = re.compile(r"^(urn:ngsi-ld:AgriParcel:)?[A-Za-z0-9._:-]{1,200}$")
 _NUMBERS = ("seedingRate", "harvestedWeight")
 _NOTES_MAX = 500
+_TERMINATING = ("roller_crimper", "mowing")  # tillage that ends a cover in the SDK
 _UUID4 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 
 
@@ -161,20 +162,21 @@ async def _fact_parcel(client, parcel_urn: str) -> dict:
         if exc.response is not None and exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail={"code": "parcel_not_found", "detail": parcel_urn})
         logger.error("record: parcel read failed parcel=%s: %s", parcel_urn, exc)
-        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable"})
     except (httpx.HTTPError, ValueError, RuntimeError) as exc:
         logger.error("record: parcel read failed parcel=%s: %s", parcel_urn, exc)
-        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable"})
 
 
-async def _fact_crop(client, tenant_id: str, parcel_urn: str, day: date, today: date, required: bool):
+async def _fact_crop(client, tenant_id: str, parcel_urn: str, day: date, today: date, required: bool,
+                     prefer_cover: bool = False):
     """The single standing crop (best effort); only haymaking and baling cannot do without it."""
     try:
         _, crops, ops = await load_crop_data(client, parcel_urn)
     except Exception as exc:  # noqa: BLE001 — a watering never waits for the crop read
         if required:
             logger.warning("record: crop data unavailable parcel=%s: %s", parcel_urn, exc)
-            raise HTTPException(status_code=503, detail={"code": "crop_data_unavailable", "detail": str(exc)})
+            raise HTTPException(status_code=503, detail={"code": "crop_data_unavailable"})
         logger.exception("record: crop lookup failed, recording without hasAgriCrop tenant=%s parcel=%s",
                          tenant_id, parcel_urn)
         return None
@@ -182,7 +184,7 @@ async def _fact_crop(client, tenant_id: str, parcel_urn: str, day: date, today: 
     if required:
         return current_cycle(parcel_urn, crops, ops, day, today, sown_only=True)
     try:
-        return current_cycle(parcel_urn, crops, ops, day, today)
+        return current_cycle(parcel_urn, crops, ops, day, today, prefer_cover=prefer_cover)
     except Exception:  # noqa: BLE001 — best effort: loud, but the record stands
         logger.exception("record: crop resolution failed, recording without hasAgriCrop tenant=%s parcel=%s",
                          tenant_id, parcel_urn)
@@ -212,7 +214,8 @@ async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, bo
         if day > today + timedelta(days=1):
             raise HTTPException(status_code=409, detail={"code": "future_date"})
         needs_crop = op_type in ("haymaking", "baling")
-        cycle = await _fact_crop(client, tenant_id, parcel_urn, day, today, needs_crop)
+        cycle = await _fact_crop(client, tenant_id, parcel_urn, day, today, needs_crop,
+                                 prefer_cover=attrs.get("tillageType") in _TERMINATING)
         if needs_crop:
             if cycle is None or not cycle.species:
                 raise HTTPException(status_code=409, detail={"code": "no_crop_on_date"})
@@ -237,12 +240,12 @@ async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, bo
             return _duplicate(stored, body, day, op_type, tenant_id)
         except (RuntimeError, requests.RequestException) as exc:
             logger.error("record: write failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
-            raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+            raise HTTPException(status_code=503, detail={"code": "store_unavailable"})
         logger.info("record: %s tenant=%s parcel=%s crop=%s op=%s", op_type, tenant_id, parcel_urn,
                     cycle.crop_id if cycle else None, entity.get("id"))
 
         reconciled = False
-        if attrs.get("tillageType") in ("roller_crimper", "mowing") and config.CROP_CYCLES_WRITER_ENABLED:
+        if attrs.get("tillageType") in _TERMINATING and config.CROP_CYCLES_WRITER_ENABLED:
             # Rolling or mowing a cover ends it in the SDK: show it at once.
             try:
                 await reconcile_parcel(client, tenant_id, parcel_urn)
