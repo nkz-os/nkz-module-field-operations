@@ -338,6 +338,18 @@ def test_retry_returns_the_stored_record_without_matcher_or_create(env, monkeypa
     assert env["created"] == [] and env["reconciled"] == []
 
 
+def test_retry_reads_the_relationships_under_their_legacy_alias(env):
+    # The broker compacts hasAgriParcel/hasAgriCrop back as refAgriParcel/refAgriCrop:
+    # both names share one IRI in the platform context.
+    stored = _stored()
+    stored["refAgriParcel"] = stored.pop("hasAgriParcel")
+    stored["refAgriCrop"] = {"type": "Relationship", "object": PLANNED["id"]}
+    env["orion"].stored[DET] = stored
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200, r.text
+    assert r.json()["parcel_id"] == P and r.json()["crop_id"] == PLANNED["id"]
+
+
 def test_retry_maps_stored_uprooting_back_and_omits_missing_crop(env):
     env["orion"].stored[DET] = _stored(operationType={"type": "Property", "value": "tillage"},
                                        tillageType={"type": "Property", "value": "uprooting"})
