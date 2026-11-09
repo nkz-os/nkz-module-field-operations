@@ -24,5 +24,5 @@ async def get_recent_products(request: Request, kind: str = Query(default=""),
         products = await asyncio.to_thread(svc.recent_products, tenant_id, kind, n)
     except Exception as exc:  # noqa: BLE001 - any broker failure is a 503, never a silent empty list
         logger.error("recent-products: query failed tenant=%s kind=%s: %s", tenant_id, kind, exc)
-        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable"})
     return {"kind": kind, "products": products}

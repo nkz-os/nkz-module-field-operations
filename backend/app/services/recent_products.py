@@ -54,7 +54,8 @@ def _row(kind: str, op: dict) -> dict | None:
         name = _text(op.get("fertilizerType"))
         rate, unit = _num(op.get("fertilizerRateInput")), _text(op.get("fertilizerRateUnit"))
         if rate is None:
-            rate, unit = _num(op.get("fertilizerRate")), "kg/ha"
+            rate = _num(op.get("fertilizerRate"))
+            unit = "kg/ha" if rate is not None else None
     if not name or not day:
         return None
     return {"name": " ".join(name.split()), "lastRate": rate,

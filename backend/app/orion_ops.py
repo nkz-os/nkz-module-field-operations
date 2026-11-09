@@ -297,6 +297,12 @@ def query_completed_operations_since(
         out.extend(rows)
         if len(rows) < page_size:
             break
+    else:
+        # The broker gives no ordering: past the cap the newest rows may be the missing ones.
+        logger.warning(
+            "completed operations query hit the page cap tenant=%s type=%s rows=%d",
+            tenant_id, operation_type, len(out),
+        )
     return out
 
 
