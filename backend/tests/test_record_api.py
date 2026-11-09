@@ -1,4 +1,5 @@
 """POST /operations/record and GET /parcels: record a past sowing or harvest from the UI."""
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -18,8 +19,15 @@ class FakeOrion:
         self.parcel = {"id": P, "type": "AgriParcel", "name": "Soto Alto", "area": 12.5}
         self.crops, self.ops = list(crops), list(ops)
         self.parcels = parcels if parcels is not None else [self.parcel]
+        self.stored, self.gets = {}, []
 
     async def get_entity(self, eid, options=None):
+        self.gets.append(eid)
+        if eid in self.stored:
+            return self.stored[eid]
+        if eid.startswith("urn:ngsi-ld:AgriParcelOperation:"):
+            req = httpx.Request("GET", "http://orion/x")
+            raise httpx.HTTPStatusError("nf", request=req, response=httpx.Response(404, request=req))
         return self.parcel
 
     async def query_entities(self, type=None, q=None, limit=100, offset=0, attrs=None, options=None):
@@ -84,7 +92,7 @@ def test_unmatched_sowing_is_refused_and_nothing_written(env):
 @pytest.mark.parametrize("body,code", [
     ({"parcel_id": P, "operation_type": "sowing", "date": "2026-11-10"}, "missing_fields"),
     ({**_sow(), "date": "10/11/2026"}, "invalid_date"),
-    ({**_sow(), "operation_type": "spraying"}, "unsupported_type"),
+    ({**_sow(), "operation_type": "bogus"}, "unsupported_type"),
     ({**_sow(), "sowingMethod": "magic"}, "invalid_sowing_method"),
     ({"parcel_id": P, "operation_type": "harvesting", "date": "2026-11-10"}, "missing_fields"),
 ])
@@ -276,3 +284,314 @@ def test_parcel_list_broker_failure_is_a_503(env):
     env["orion"] = Down()
     r = TestClient(app).get("/api/field-operations/parcels", headers=H)
     assert r.status_code == 503 and r.json()["detail"]["code"] == "crop_data_unavailable"
+
+
+CID = "3f2b8c1e-5d4a-4e7b-9a1c-0d2e4f6a8b1c"
+DET = f"urn:ngsi-ld:AgriParcelOperation:tenant-a:{CID}"
+
+
+def _stored(**kw):
+    e = {"id": DET, "type": "AgriParcelOperation",
+         "hasAgriParcel": {"type": "Relationship", "object": P},
+         "operationType": {"type": "Property", "value": "sowing"},
+         "startedAt": {"type": "Property", "value": {"@type": "DateTime", "@value": "2026-11-10T12:00:00Z"}}}
+    e.update(kw)
+    return e
+
+
+@pytest.mark.parametrize("cid", ["nope", "3f2b8c1e-5d4a-1e7b-9a1c-0d2e4f6a8b1c", 5, ""])
+def test_bad_client_id_is_422(env, cid):
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=cid))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_client_id"
+    assert env["created"] == []
+
+
+def test_client_id_makes_a_deterministic_entity_id_lowercased(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID.upper()))
+    assert r.status_code == 201, r.text
+    assert env["created"][0][1]["entity_id"] == DET
+    body = r.json()
+    assert body["operation_id"] == "urn:ngsi-ld:AgriParcelOperation:tenant-a:abc"
+    assert body["duplicate"] is False and body["operation_type"] == "sowing"
+    assert body["parcel_id"] == P and body["date"] == "2026-11-10"
+
+
+def test_without_client_id_no_entity_id_and_no_lookup(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow())
+    assert r.status_code == 201
+    assert "entity_id" not in env["created"][0][1]
+    assert not any(g.startswith("urn:ngsi-ld:AgriParcelOperation:") for g in env["orion"].gets)
+
+
+def test_retry_returns_the_stored_record_without_matcher_or_create(env, monkeypatch):
+    env["orion"].stored[DET] = _stored(hasAgriCrop={"type": "Relationship", "object": PLANNED["id"]})
+
+    def boom(*a, **k):
+        raise AssertionError("matcher must not run")
+    monkeypatch.setattr(route, "match_record", boom)
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"operation_id": DET, "operation_type": "sowing", "parcel_id": P, "date": "2026-11-10",
+                        "duplicate": True, "crop_id": PLANNED["id"], "species": None, "role": None,
+                        "campaign": None, "harvest_campaign": None, "harvest_campaign_label": None,
+                        "reconciled": False}
+    assert env["created"] == [] and env["reconciled"] == []
+
+
+def test_retry_maps_stored_uprooting_back_and_omits_missing_crop(env):
+    env["orion"].stored[DET] = _stored(operationType={"type": "Property", "value": "tillage"},
+                                       tillageType={"type": "Property", "value": "uprooting"})
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200
+    assert r.json()["operation_type"] == "uprooting" and r.json()["crop_id"] is None
+
+
+def test_retry_with_a_different_body_returns_the_existing_record(env, caplog):
+    env["orion"].stored[DET] = _stored()
+    with caplog.at_level("WARNING"):
+        r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID, seedingRate=999, date="2026-11-11"))
+    assert r.status_code == 200 and r.json()["date"] == "2026-11-10" and r.json()["duplicate"] is True
+    assert any("client_id" in m and "differ" in m for m in caplog.messages)
+    assert "999" not in caplog.text
+
+
+def test_create_hitting_an_existing_entity_rereads_and_answers_duplicate(env, monkeypatch):
+    orion = env["orion"]
+
+    def clash(tenant_id, **kw):
+        orion.stored[DET] = _stored()  # the concurrent request landed first
+        raise route.EntityAlreadyExists("exists")
+    monkeypatch.setattr(route, "create_operation", clash)
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 200 and r.json()["duplicate"] is True and r.json()["operation_id"] == DET
+
+
+def test_lookup_failure_other_than_404_is_503(env):
+    async def broken(eid, options=None):
+        raise httpx.ConnectError("down")
+    env["orion"].get_entity = broken
+    r = TestClient(app).post(URL, headers=H, json=_sow(client_id=CID))
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "store_unavailable"
+    assert env["created"] == []
+
+
+def test_notes_over_500_chars_is_422(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(notes="x" * 501))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_notes"
+    assert env["created"] == []
+    assert TestClient(app).post(URL, headers=H, json=_sow(notes="x" * 500)).status_code == 201
+
+
+# ---- the types recorded as completed facts (no crop window) ----
+class _CropFail(FakeOrion):
+    async def query_entities(self, type=None, **kw):
+        if type in ("AgriCrop", "AgriParcelOperation"):
+            raise httpx.ConnectError("down")
+        return await super().query_entities(type=type, **kw)
+
+
+ACTIVE = {"id": "urn:ngsi-ld:AgriCrop:t:p1:a", "type": "AgriCrop", "refAgriParcel": P, "status": "active",
+          "cropRole": "main_crop", "species": "TRZAX", "plantingDate": "2026-10-01",
+          "plantingDateSource": "manual", "expectedTerminationDate": "2027-07-31"}
+
+
+def _fact(op, **kw):
+    return {"parcel_id": P, "operation_type": op, "date": "2026-11-10", **kw}
+
+
+def test_irrigation_recorded_without_crop_window(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=15000))
+    assert r.status_code == 201, r.text
+    b = r.json()
+    assert b["operation_type"] == "irrigation" and b["duplicate"] is False and b["crop_id"] is None
+    assert b["reconciled"] is False
+    _, kw = env["created"][0]
+    assert kw["waterPerHectare"] == 15000.0 and kw["status"] == "completed" and "crop_id" not in kw
+    assert kw["work_order"] == "REG-2026-11-10" and kw["startedAt"] == "2026-11-10T12:00:00Z"
+
+
+def test_single_current_crop_sets_the_relationship(env):
+    env["orion"] = FakeOrion([ACTIVE])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=100))
+    assert r.status_code == 201 and r.json()["crop_id"] == ACTIVE["id"]
+    assert env["created"][0][1]["crop_id"] == ACTIVE["id"]
+
+
+def test_ambiguous_crops_record_without_relationship(env):
+    other = dict(ACTIVE, id="urn:ngsi-ld:AgriCrop:t:p1:b")
+    env["orion"] = FakeOrion([ACTIVE, other])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=100))
+    assert r.status_code == 201 and r.json()["crop_id"] is None
+
+
+def test_unreadable_crops_still_record(env):
+    env["orion"] = _CropFail([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=100))
+    assert r.status_code == 201 and r.json()["crop_id"] is None
+    assert "crop_id" not in env["created"][0][1]
+
+
+def test_unknown_parcel_is_404(env):
+    class NoParcel(FakeOrion):
+        async def get_entity(self, eid, options=None):
+            req = httpx.Request("GET", "http://orion/x")
+            raise httpx.HTTPStatusError("nf", request=req, response=httpx.Response(404, request=req))
+    env["orion"] = NoParcel([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=1))
+    assert r.status_code == 404 and r.json()["detail"]["code"] == "parcel_not_found"
+    assert env["created"] == []
+
+
+@pytest.mark.parametrize("day,status", [("2026-11-21", 201), ("2026-11-22", 409)])
+def test_future_date_has_one_day_margin(env, day, status):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=1, date=day))
+    assert r.status_code == status
+    if status == 409:
+        assert r.json()["detail"]["code"] == "future_date" and env["created"] == []
+
+
+def test_fertilization_stored_in_kg_per_ha(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact(
+        "fertilization", fertilizerType="N32", rate=200, rateUnit="L/ha", density=1.32,
+        composition={"n": 32, "p": 0, "k": 0}))
+    assert r.status_code == 201, r.text
+    kw = env["created"][0][1]
+    assert kw["fertilizerRate"] == 264.0 and kw["fertilizerRateInput"] == 200.0
+    assert kw["nitrogenContent"] == {"value": 32.0, "unitCode": "P1"} and kw["fertilizerComposition"] == "32-0-0"
+
+
+def test_spraying_reports_not_checked(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("spraying", productName="X", productRate=2))
+    assert r.status_code == 201 and r.json()["authorization"] == "not_checked"
+    assert env["created"][0][1]["productRateUnit"] == "L/ha"
+
+
+def test_tillage_rejects_uprooting_and_reconciles(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="uprooting"))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_tillage_type"
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="mowing", depth=5))
+    assert r.status_code == 201 and r.json()["reconciled"] is True
+    assert env["created"][0][1]["tillageDepth"] == 5.0
+
+
+def test_haymaking_takes_crop_type_from_the_current_crop(env):
+    env["orion"] = FakeOrion([ACTIVE])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking"))
+    assert r.status_code == 201, r.text
+    assert env["created"][0][1]["cropType"] == "TRZAX"
+
+
+@pytest.mark.parametrize("op,extra", [("haymaking", {"swathType": "raking"}),
+                                      ("baling", {"baleType": "round", "baleCount": 4})])
+def test_haymaking_and_baling_need_a_crop(env, op, extra):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact(op, **extra))
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "no_crop_on_date"
+    assert env["created"] == []
+
+
+def test_baling_with_unreadable_crops_is_503(env):
+    env["orion"] = _CropFail([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("baling", baleType="round", baleCount=4))
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "crop_data_unavailable"
+
+
+def test_scouting_needs_notes(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("scouting"))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "missing_fields"
+    r = TestClient(app).post(URL, headers=H, json=_fact("scouting", notes="aphids"))
+    assert r.status_code == 201 and env["created"][0][1]["platformType"] == "manual"
+
+
+FCID = "11111111-1111-4111-8111-111111111111"
+
+
+def test_fact_with_client_id_is_idempotent(env):
+    env["orion"] = FakeOrion([])
+    eid = f"urn:ngsi-ld:AgriParcelOperation:tenant-a:{FCID}"
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=1, client_id=FCID))
+    assert r.status_code == 201 and env["created"][0][1]["entity_id"] == eid
+    env["orion"].stored[eid] = {"id": eid, "operationType": {"value": "irrigation"},
+                                "hasAgriParcel": {"object": P}, "startedAt": {"value": "2026-11-10T12:00:00Z"}}
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=1, client_id=FCID))
+    assert r.status_code == 200 and r.json()["duplicate"] is True and len(env["created"]) == 1
+
+
+def test_huge_rate_is_a_422_not_a_500(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("fertilization", fertilizerType="x", rate=1e308, rateUnit="t/ha"))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_number"
+
+
+def test_planned_only_cycle_binds_fertilization_but_not_hay(env):
+    env["orion"] = FakeOrion([PLANNED])
+    day = "2026-11-15"
+    r = TestClient(app).post(URL, headers=H, json=_fact("fertilization", fertilizerType="x", rate=1, date=day))
+    assert r.status_code == 201 and r.json()["crop_id"] == PLANNED["id"]
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking", date=day))
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "no_crop_on_date"
+
+
+@pytest.mark.parametrize("kind,expected", [("ploughing", False), ("roller_crimper", True), ("mowing", True)])
+def test_only_terminating_tillage_reconciles(env, kind, expected):
+    env["orion"] = FakeOrion([])
+    assert route.config.CROP_CYCLES_WRITER_ENABLED is True
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType=kind))
+    assert r.status_code == 201 and r.json()["reconciled"] is expected
+    assert env["reconciled"] == ([("tenant-a", P)] if expected else [])
+
+
+def test_cycle_resolution_failure_records_without_relationship_and_logs(env, monkeypatch, caplog):
+    env["orion"] = FakeOrion([ACTIVE])
+    def boom(*a, **k):
+        raise ValueError("bug")
+    monkeypatch.setattr(route, "current_cycle", boom)
+    with caplog.at_level("ERROR"):
+        r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=100))
+    assert r.status_code == 201 and r.json()["crop_id"] is None
+    assert "crop_id" not in env["created"][0][1]
+    assert any("crop resolution failed" in m and "tenant-a" in m for m in caplog.messages)
+
+
+def test_haymaking_with_failing_loader_is_503(env):
+    env["orion"] = _CropFail([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking"))
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "crop_data_unavailable"
+
+
+def test_haymaking_binds_to_sown_cover_not_planned_main(env):
+    planned_main = dict(PLANNED, sowingWindowStart="2026-11-01", expectedTerminationDate="2027-07-31")
+    cover = dict(ACTIVE, id="urn:ngsi-ld:AgriCrop:t:p1:cover", cropRole="cover_crop", species="VICSA")
+    env["orion"] = FakeOrion([planned_main, cover])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking", date="2026-11-15"))
+    assert r.status_code == 201, r.text
+    assert r.json()["crop_id"] == cover["id"] and env["created"][0][1]["cropType"] == "VICSA"
+
+
+def test_terminating_tillage_binds_to_the_standing_cover(env):
+    cover = dict(ACTIVE, id="urn:ngsi-ld:AgriCrop:t:p1:cover", cropRole="cover_crop", species="VICSA")
+    env["orion"] = FakeOrion([PLANNED, cover])
+    d = "2026-11-15"
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="roller_crimper", date=d))
+    assert r.status_code == 201 and r.json()["crop_id"] == cover["id"]
+    r = TestClient(app).post(URL, headers=H, json=_fact("tillage", tillageType="ploughing", date=d))
+    assert r.json()["crop_id"] == PLANNED["id"]
+
+
+def test_old_types_get_the_one_day_margin(env):
+    ok = TestClient(app).post(URL, headers=H, json=_sow(date="2026-11-21"))
+    assert ok.status_code != 409 or ok.json()["detail"]["code"] != "future_date"
+    r = TestClient(app).post(URL, headers=H, json=_sow(date="2026-11-22"))
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "future_date"
+
+
+def test_new_path_503s_carry_no_broker_text(env):
+    env["orion"] = _CropFail([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking"))
+    assert r.status_code == 503 and r.json()["detail"] == {"code": "crop_data_unavailable"}

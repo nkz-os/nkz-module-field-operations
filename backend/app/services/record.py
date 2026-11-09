@@ -10,11 +10,12 @@ reason the user can act on (owner decision 2026-10-15), and nothing is written.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from nkz_platform_sdk.crop_cycles import UPROOTING, CropCycle, resolve_crop_cycles
 
-RECORDABLE = ("sowing", "harvesting", "uprooting")
+_MATCHED = ("sowing", "harvesting", "uprooting")  # land on a crop through its window
+RECORDABLE = _MATCHED + ("irrigation", "fertilization", "spraying", "tillage", "haymaking", "baling", "scouting")
 _PROBE_ID = "urn:ngsi-ld:AgriParcelOperation:record-probe"
 _FACTS = ("actual", "declared")
 
@@ -83,9 +84,9 @@ def _match_uprooting(parcel_urn, crops, ops, before, day: date, at: date) -> Mat
 def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: str,
                  day: date, today: date) -> Match:
     """The crop a completed ``op_type`` on ``day`` would land on, or why it would land on none."""
-    if op_type not in RECORDABLE:
+    if op_type not in _MATCHED:
         return Match(False, "unsupported_type")
-    if day > today:
+    if day > today + timedelta(days=1):  # one day of margin, as for the other types
         return Match(False, "future_date")
     sowing = op_type == "sowing"
     uprooting = op_type == "uprooting"
@@ -125,3 +126,28 @@ def match_record(parcel_urn: str, crops: list[dict], ops: list[dict], op_type: s
     if not sowing and cycle.start.provenance not in _FACTS:
         return Match(False, "not_sown")
     return _hit(cycle, crops)
+
+
+def current_cycle(parcel_urn: str, crops: list[dict], ops: list[dict], day: date, today: date,
+                  sown_only: bool = False, prefer_cover: bool = False) -> CropCycle | None:
+    """The one crop standing on ``day``, preferring the main crop; None when none or several remain.
+
+    ``sown_only`` keeps cycles whose start is a fact (sown or planted), not a plan."""
+    timeline = resolve_crop_cycles(parcel_urn, crops, ops, max(today, day))
+    standing = [cy for cy in timeline.cycles
+                if cy.start.date and cy.start.date <= day and (cy.end.date is None or day <= cy.end.date)]
+    if sown_only:
+        standing = [cy for cy in standing if cy.start.provenance in _FACTS]
+    if prefer_cover:  # the stand a terminating tillage will end
+        covers = [cy for cy in standing if cy.role in ("cover_crop", "catch_crop")]
+        if covers:
+            standing = covers
+    main = [cy for cy in standing if cy.role == "main_crop"]
+    standing = main or standing
+    return standing[0] if len(standing) == 1 else None
+
+
+def resolve_current_crop(parcel_urn: str, crops: list[dict], ops: list[dict], day: date, today: date) -> str | None:
+    """Crop id for ``hasAgriCrop`` of a fact on ``day``: only when exactly one candidate stands."""
+    cycle = current_cycle(parcel_urn, crops, ops, day, today)
+    return cycle.crop_id if cycle else None
