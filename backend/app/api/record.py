@@ -10,7 +10,7 @@ import asyncio
 import logging
 import math
 import re
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 import requests
@@ -30,7 +30,8 @@ from .. import config
 from ..config import REQUIRED_FIELDS
 from ..orion_ops import EntityAlreadyExists, create_operation
 from ..services.crop_cycles_writer import reconcile_parcel
-from ..services.record import RECORDABLE, match_record
+from ..services.record import RECORDABLE, current_cycle, match_record
+from ..services.record_types import NEW_TYPES, RecordError, build_attrs
 from ..state_machine import validate_sowing_method
 
 logger = logging.getLogger(__name__)
@@ -123,10 +124,24 @@ async def _lookup(client, tenant_id: str, entity_id: str) -> dict | None:
 
 def _duplicate(entity: dict, body: dict, day: date, op_type: str, tenant_id: str):
     view = _stored_view(entity)
-    if view["operation_type"] != op_type or view["date"] != day.isoformat():
+    if view["operation_type"] != op_type or view["date"] != day.isoformat() \
+            or (body.get("parcel_id") and view["parcel_id"] != normalize_parcel_urn(str(body["parcel_id"]))):
         logger.warning("record: client_id reused with a body that differs from the stored record "
                        "tenant=%s entity=%s", tenant_id, entity.get("id"))
     return JSONResponse(status_code=200, content=view)
+
+
+def _common(body: dict, tenant_id: str) -> str | None:
+    """Notes and client id, shared by every type; returns the deterministic entity id."""
+    notes = body.get("notes")
+    if notes is not None and (not isinstance(notes, str) or len(notes) > _NOTES_MAX):
+        _unprocessable("invalid_notes", f"notes must be text of at most {_NOTES_MAX} characters")
+    client_id = body.get("client_id")
+    if client_id is not None:
+        client_id = client_id.lower() if isinstance(client_id, str) else client_id
+        if not isinstance(client_id, str) or not _UUID4.match(client_id):
+            _unprocessable("invalid_client_id", "client_id must be a UUIDv4")
+    return f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{client_id}" if client_id else None
 
 
 async def _crop_data(client, parcel_urn: str):
@@ -137,6 +152,103 @@ async def _crop_data(client, parcel_urn: str):
     except CropDataUnavailable as exc:
         logger.warning("record: crop data unavailable parcel=%s: %s", parcel_urn, exc)
         raise HTTPException(status_code=503, detail={"code": "crop_data_unavailable", "detail": str(exc)})
+
+
+async def _fact_parcel(client, parcel_urn: str) -> dict:
+    try:
+        return await client.get_entity(parcel_urn, options="keyValues")
+    except httpx.HTTPStatusError as exc:
+        if exc.response is not None and exc.response.status_code == 404:
+            raise HTTPException(status_code=404, detail={"code": "parcel_not_found", "detail": parcel_urn})
+        logger.error("record: parcel read failed parcel=%s: %s", parcel_urn, exc)
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+    except (httpx.HTTPError, ValueError, RuntimeError) as exc:
+        logger.error("record: parcel read failed parcel=%s: %s", parcel_urn, exc)
+        raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+
+
+async def _fact_crop(client, parcel_urn: str, day: date, today: date, required: bool):
+    """The single standing crop (best effort); only haymaking and baling cannot do without it."""
+    try:
+        _, crops, ops = await load_crop_data(client, parcel_urn)
+        return current_cycle(parcel_urn, crops, ops, day, today)
+    except Exception as exc:  # noqa: BLE001 — a watering never waits for the crop read
+        if required:
+            logger.warning("record: crop data unavailable parcel=%s: %s", parcel_urn, exc)
+            raise HTTPException(status_code=503, detail={"code": "crop_data_unavailable", "detail": str(exc)})
+        logger.warning("record: crop lookup failed, recording without hasAgriCrop parcel=%s: %s", parcel_urn, exc)
+        return None
+
+
+async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, body: dict):
+    """A completed fact of one of the types that take no crop window (spec 3a, 3.2)."""
+    if not body.get("parcel_id"):
+        _unprocessable("missing_fields", "parcel_id is required")
+    if not _PARCEL.match(str(body["parcel_id"])):
+        _unprocessable("invalid_parcel", "parcel_id is not a parcel id")
+    try:
+        attrs = build_attrs(op_type, body)
+    except RecordError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code, "detail": exc.detail})
+    entity_id = _common(body, tenant_id)
+    parcel_urn = normalize_parcel_urn(str(body["parcel_id"]))
+    client = _orion(tenant_id)
+    try:
+        if entity_id:
+            stored = await _lookup(client, tenant_id, entity_id)
+            if stored:
+                return _duplicate(stored, body, day, op_type, tenant_id)
+        parcel = await _fact_parcel(client, parcel_urn)
+        today = _today(parcel)
+        if day > today + timedelta(days=1):
+            raise HTTPException(status_code=409, detail={"code": "future_date"})
+        needs_crop = op_type in ("haymaking", "baling")
+        cycle = await _fact_crop(client, parcel_urn, day, today, needs_crop)
+        if needs_crop:
+            if cycle is None or not cycle.species:
+                raise HTTPException(status_code=409, detail={"code": "no_crop_on_date"})
+            attrs["cropType"] = cycle.species
+        if cycle:
+            attrs["crop_id"] = cycle.crop_id
+
+        stamp = f"{day.isoformat()}T12:00:00Z"
+        extra = {"entity_id": entity_id} if entity_id else {}
+        try:
+            entity = await asyncio.to_thread(
+                create_operation, tenant_id,
+                parcel_id=parcel_urn, operation_type=op_type, work_order=f"REG-{day.isoformat()}",
+                operator=user_id, data_source="manual", status="completed",
+                startedAt=stamp, endedAt=stamp, **extra, **attrs,
+            )
+        except EntityAlreadyExists:
+            stored = await _lookup(client, tenant_id, entity_id) if entity_id else None
+            if not stored:
+                raise HTTPException(status_code=503, detail={"code": "store_unavailable",
+                                                             "detail": "entity exists but cannot be read"})
+            return _duplicate(stored, body, day, op_type, tenant_id)
+        except (RuntimeError, requests.RequestException) as exc:
+            logger.error("record: write failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
+            raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
+        logger.info("record: %s tenant=%s parcel=%s crop=%s op=%s", op_type, tenant_id, parcel_urn,
+                    cycle.crop_id if cycle else None, entity.get("id"))
+
+        reconciled = False
+        if op_type == "tillage" and config.CROP_CYCLES_WRITER_ENABLED:
+            # Rolling or mowing a cover ends it in the SDK: show it at once.
+            try:
+                await reconcile_parcel(client, tenant_id, parcel_urn)
+                reconciled = True
+            except Exception as exc:  # noqa: BLE001 — the record stands; the sweep catches up
+                logger.warning("record: reconcile failed tenant=%s parcel=%s: %s", tenant_id, parcel_urn, exc)
+        answer = {"operation_id": entity.get("id"), "operation_type": op_type, "parcel_id": parcel_urn,
+                  "date": day.isoformat(), "duplicate": False, "crop_id": cycle.crop_id if cycle else None,
+                  "species": None, "role": None, "campaign": None, "harvest_campaign": None,
+                  "harvest_campaign_label": None, "reconciled": reconciled}
+        if op_type == "spraying":
+            answer["authorization"] = "not_checked"  # no CUE check in v1
+        return JSONResponse(status_code=201, content=answer)
+    finally:
+        await client.close()
 
 
 @router.post("/operations/record", status_code=201)
@@ -151,6 +263,8 @@ async def record_operation(request: Request, body: dict):
     if not _PARCEL.match(str(body["parcel_id"])):
         _unprocessable("invalid_parcel", "parcel_id is not a parcel id")
     day = _parse_day(body.get("date"))
+    if op_type in NEW_TYPES:
+        return await _record_fact(tenant_id, user_id, op_type, day, body)
     error = validate_sowing_method(op_type, body)
     if error:
         _unprocessable("invalid_sowing_method", error)
@@ -165,15 +279,7 @@ async def record_operation(request: Request, body: dict):
         if body.get(field) not in (None, ""):
             _positive(field, body[field])
 
-    notes = body.get("notes")
-    if notes is not None and (not isinstance(notes, str) or len(notes) > _NOTES_MAX):
-        _unprocessable("invalid_notes", f"notes must be text of at most {_NOTES_MAX} characters")
-    client_id = body.get("client_id")
-    if client_id is not None:
-        client_id = client_id.lower() if isinstance(client_id, str) else client_id
-        if not isinstance(client_id, str) or not _UUID4.match(client_id):
-            _unprocessable("invalid_client_id", "client_id must be a UUIDv4")
-    entity_id = f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{client_id}" if client_id else None
+    entity_id = _common(body, tenant_id)
 
     parcel_urn = normalize_parcel_urn(str(body["parcel_id"]))
     client = _orion(tenant_id)

@@ -95,11 +95,12 @@ def create_operation(
     try:
         client.create_entity(entity)
     except requests.HTTPError as e:
-        code, text = e.response.status_code, e.response.text or ""
+        code = getattr(e.response, "status_code", None)
+        text = getattr(e.response, "text", "") or ""
         if code == 409 or (code == 422 and "already exist" in text.lower()):
             raise EntityAlreadyExists(f"Orion-LD entity already exists ({code})") from e
         raise RuntimeError(
-            f"Orion-LD create failed ({e.response.status_code}): {e.response.text}"
+            f"Orion-LD create failed ({code}): {text}"
         ) from e
 
     logger.info("Created AgriParcelOperation %s (status=%s)", entity_id, status)
