@@ -156,3 +156,44 @@ def test_organic_flag():
     assert build_attrs("fertilization", {**base, "organic": False})["organicFertilizer"] is False
     assert "organicFertilizer" not in build_attrs("fertilization", base)
     assert code("fertilization", {**base, "organic": "yes"}) == "invalid_choice"
+
+
+# --- scouting: observed phenological stage (BBCH) ---------------------------------------------
+
+PS = "phenologicalStage"
+
+
+@pytest.mark.parametrize("raw,want", [(31, "31"), ("31", "31"), ("05", "05"), ("5", "05"), (0, "00"), (99, "99"), (" 7 ", "07")])
+def test_scouting_stage_accepted(raw, want):
+    assert build_attrs("scouting", {"notes": "n", PS: raw})[PS] == want
+
+
+@pytest.mark.parametrize("raw", [None, "", "  "])
+def test_scouting_stage_empty_stores_nothing(raw):
+    assert PS not in build_attrs("scouting", {"notes": "n", PS: raw})
+
+
+@pytest.mark.parametrize("raw", [True, False, 3.5, 12.0, -1, 100, "100", "abc", "3.5", "-4", "1e1", [31], {"a": 1}, float("nan")])
+def test_scouting_stage_rejected(raw):
+    assert code("scouting", {"notes": "n", PS: raw}) == "invalid_phenological_stage"
+
+
+def test_scouting_without_stage_unchanged():
+    assert build_attrs("scouting", {"notes": "n"}) == {"platformType": "manual", "notes": "n"}
+
+
+def test_scouting_notes_still_required_with_stage():
+    assert code("scouting", {PS: 31}) == "missing_fields"
+
+
+def test_stage_ignored_on_other_types():
+    assert build_attrs("irrigation", {"waterPerHectare": 5, PS: 31}) == {"waterPerHectare": 5.0}
+
+
+def test_read_stage_three_spellings():
+    from app.services.record_types import read_phenological_stage
+    for key in ("phenologicalStage", "nkz:phenologicalStage", "https://nkz-os.org/ns/phenologicalStage"):
+        assert read_phenological_stage({key: {"type": "Property", "value": "05"}}) == "05"
+        assert read_phenological_stage({key: "31"}) == "31"
+    assert read_phenological_stage({}) is None
+    assert read_phenological_stage({PS: {"value": "x"}}) is None
