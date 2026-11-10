@@ -31,7 +31,7 @@ from ..config import REQUIRED_FIELDS
 from ..orion_ops import EntityAlreadyExists, create_operation
 from ..services.crop_cycles_writer import reconcile_parcel
 from ..services.record import RECORDABLE, current_cycle, match_record
-from ..services.record_types import NEW_TYPES, RecordError, build_attrs
+from ..services.record_types import NEW_TYPES, RecordError, STAGE_ATTR, build_attrs, read_phenological_stage
 from ..state_machine import validate_sowing_method
 
 logger = logging.getLogger(__name__)
@@ -98,12 +98,16 @@ def _stored_view(entity: dict) -> dict:
     started = _value(entity.get("startedAt"))
     if isinstance(started, dict):
         started = started.get("@value")
-    return {"operation_id": entity.get("id"), "operation_type": op_type,
+    view = {"operation_id": entity.get("id"), "operation_type": op_type,
             "parcel_id": parcel.get("object") if isinstance(parcel, dict) else parcel,
             "date": str(started)[:10] if started else None, "duplicate": True,
             "crop_id": (crop.get("object") if isinstance(crop, dict) else crop) if crop else None,
             "species": None, "role": None, "campaign": None, "harvest_campaign": None,
             "harvest_campaign_label": None, "reconciled": False}
+    stage = read_phenological_stage(entity)
+    if stage is not None:  # additive: the key appears only when a stage was stored
+        view["phenologicalStage"] = stage
+    return view
 
 
 async def existing_record(client, entity_id: str) -> dict | None:
@@ -257,6 +261,8 @@ async def _record_fact(tenant_id: str, user_id: str, op_type: str, day: date, bo
                   "date": day.isoformat(), "duplicate": False, "crop_id": cycle.crop_id if cycle else None,
                   "species": None, "role": None, "campaign": None, "harvest_campaign": None,
                   "harvest_campaign_label": None, "reconciled": reconciled}
+        if STAGE_ATTR in attrs:
+            answer["phenologicalStage"] = attrs[STAGE_ATTR]
         if op_type == "spraying":
             answer["authorization"] = "not_checked"  # no CUE check in v1
         return JSONResponse(status_code=201, content=answer)

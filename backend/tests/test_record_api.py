@@ -607,3 +607,48 @@ def test_new_path_503s_carry_no_broker_text(env):
     env["orion"] = _CropFail([])
     r = TestClient(app).post(URL, headers=H, json=_fact("haymaking", swathType="raking"))
     assert r.status_code == 503 and r.json()["detail"] == {"code": "crop_data_unavailable"}
+
+
+def test_scouting_stage_is_stored_as_padded_string(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("scouting", notes="n", phenologicalStage=5))
+    assert r.status_code == 201 and env["created"][0][1]["phenologicalStage"] == "05"
+    assert r.json()["phenologicalStage"] == "05"
+
+
+def test_scouting_bad_stage_is_422_and_writes_nothing(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("scouting", notes="n", phenologicalStage=100))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_phenological_stage"
+    assert set(r.json()) == {"detail"} and env["created"] == []
+
+
+def test_stage_on_other_type_is_ignored(env):
+    env["orion"] = FakeOrion([])
+    r = TestClient(app).post(URL, headers=H, json=_fact("irrigation", waterPerHectare=5, phenologicalStage="zz"))
+    assert r.status_code == 201 and "phenologicalStage" not in env["created"][0][1]
+    assert "phenologicalStage" not in r.json()
+
+
+def test_duplicate_view_exposes_stage():
+    view = route._stored_view({"id": "x", "operationType": {"value": "scouting"},
+                               "https://nkz-os.org/ns/phenologicalStage": {"type": "Property", "value": "31"}})
+    assert view["phenologicalStage"] == "31"
+    assert "phenologicalStage" not in route._stored_view({"id": "x", "operationType": {"value": "scouting"}})
+
+
+def test_scouting_duplicate_returns_same_stage(env):
+    env["orion"] = FakeOrion([])
+    eid = f"urn:ngsi-ld:AgriParcelOperation:tenant-a:{FCID}"
+    body = _fact("scouting", notes="n", phenologicalStage="5", client_id=FCID)
+    first = TestClient(app).post(URL, headers=H, json=body)
+    assert first.status_code == 201 and first.json()["phenologicalStage"] == "05"
+    kw = env["created"][0][1]
+    env["orion"].stored[eid] = {"id": eid, "operationType": {"value": "scouting"},
+                                "hasAgriParcel": {"object": P}, "startedAt": {"value": kw["startedAt"]},
+                                "https://nkz-os.org/ns/phenologicalStage":
+                                    {"type": "Property", "value": kw["phenologicalStage"]}}
+    second = TestClient(app).post(URL, headers=H, json=body)
+    assert second.status_code == 200 and second.json()["duplicate"] is True
+    assert second.json()["phenologicalStage"] == first.json()["phenologicalStage"] == "05"
+    assert len(env["created"]) == 1

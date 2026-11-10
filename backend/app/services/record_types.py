@@ -190,6 +190,42 @@ def _count(raw) -> int:
     return int(value)
 
 
+STAGE_ATTR = "phenologicalStage"  # term already in the platform @context
+_STAGE_TERMS = ("phenologicalStage", "nkz:phenologicalStage", "https://nkz-os.org/ns/phenologicalStage")
+
+
+def _stage_code(raw) -> str | None:
+    """BBCH two-digit code 0-99 as a zero-padded string, from an int or a 1-2 digit string; else None."""
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        value = raw
+    elif isinstance(raw, str) and raw.strip().isascii() and raw.strip().isdigit() and len(raw.strip()) <= 2:
+        value = int(raw.strip())
+    else:
+        return None
+    return f"{value:02d}" if 0 <= value <= 99 else None
+
+
+def _phenological_stage(body: dict) -> dict:
+    raw = body.get("phenologicalStage")
+    if _empty(raw):
+        return {}
+    code = _stage_code(raw)
+    if code is None:
+        raise RecordError("invalid_phenological_stage", "phenologicalStage must be a BBCH code from 0 to 99")
+    return {STAGE_ATTR: code}
+
+
+def read_phenological_stage(entity: dict) -> str | None:
+    """The stored BBCH code (two-character string) under any of its spellings, or None."""
+    for term in _STAGE_TERMS:
+        if term in entity:
+            attr = entity[term]
+            return _stage_code(attr.get("value") if isinstance(attr, dict) else attr)
+    return None
+
+
 def build_attrs(operation_type: str, body: dict) -> dict:
     """Stored attributes of one of ``NEW_TYPES`` (crop-derived ones are added by the caller)."""
     if operation_type == "irrigation":
@@ -211,6 +247,7 @@ def build_attrs(operation_type: str, body: dict) -> dict:
     elif operation_type == "scouting":
         platform = DEFAULT_PLATFORM if _empty(body.get("platformType")) else body["platformType"]
         attrs = {"platformType": _choice("platformType", platform, PLATFORM_TYPES)}
+        attrs.update(_phenological_stage(body))
     else:
         raise RecordError("unsupported_type", f"operation_type must be one of: {', '.join(NEW_TYPES)}")
     attrs.update(_notes(body, required=operation_type == "scouting"))
