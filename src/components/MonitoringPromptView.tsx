@@ -8,6 +8,7 @@ export interface MonitoringPromptViewProps {
   result: ActivationResult | null;
   onActivate: () => void;
   onSkip: () => void;
+  onClose: () => void;
 }
 
 /** Second step of the sowing modal: offer satellite monitoring from the sowing date. */
@@ -30,14 +31,23 @@ export function MonitoringPromptView(p: MonitoringPromptViewProps) {
           )}
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-nkz-border">
-          <button id="monitoring-skip" type="button" onClick={p.onSkip} disabled={p.busy}
-            className="text-sm text-nkz-text-muted hover:text-nkz-text-primary px-3 py-1.5">
-            {t('monitoring.skip')}
-          </button>
-          <button id="monitoring-activate" type="button" onClick={p.onActivate} disabled={p.busy || p.result !== null}
-            className="text-sm font-medium rounded-md px-3 py-1.5 bg-nkz-accent-base text-white disabled:opacity-50">
-            {t('monitoring.activate')}
-          </button>
+          {p.result ? (
+            <button id="monitoring-close" type="button" onClick={p.onClose}
+              className="text-sm font-medium rounded-md px-3 py-1.5 bg-nkz-accent-base text-white">
+              {t('monitoring.close')}
+            </button>
+          ) : (
+            <>
+              <button id="monitoring-skip" type="button" onClick={p.onSkip} disabled={p.busy}
+                className="text-sm text-nkz-text-muted hover:text-nkz-text-primary px-3 py-1.5">
+                {t('monitoring.skip')}
+              </button>
+              <button id="monitoring-activate" type="button" onClick={p.onActivate} disabled={p.busy}
+                className="text-sm font-medium rounded-md px-3 py-1.5 bg-nkz-accent-base text-white disabled:opacity-50">
+                {t('monitoring.activate')}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -243,6 +243,7 @@ const en = {
     body: "Satellite monitoring of this parcel can start now. Images will be retrieved from the sowing date ({{date}}).",
     activate: "Activate",
     skip: "Not now",
+    close: "Close",
     result: {
       ok: "Monitoring activated.",
       pending: "Activation pending: it will be retried automatically.",
@@ -493,6 +494,7 @@ const es = {
     body: "Se puede iniciar el seguimiento por satélite de esta parcela. Se recuperarán las imágenes desde la siembra ({{date}}).",
     activate: "Activar",
     skip: "Ahora no",
+    close: "Cerrar",
     result: {
       ok: "Seguimiento activado.",
       pending: "Activación pendiente: se reintentará automáticamente.",
@@ -602,6 +604,7 @@ const ca = {
     body: "Es pot iniciar el seguiment per satèl·lit d'aquesta parcel·la. Es recuperaran les imatges des de la sembra ({{date}}).",
     activate: "Activar",
     skip: "Ara no",
+    close: "Tanca",
     result: {
       ok: "Seguiment activat.",
       pending: "Activació pendent: es reintentarà automàticament.",
@@ -711,6 +714,7 @@ const eu = {
     body: "Partzela honen satelite bidezko jarraipena has daiteke. Irudiak ereitetik aurrera berreskuratuko dira ({{date}}).",
     activate: "Aktibatu",
     skip: "Orain ez",
+    close: "Itxi",
     result: {
       ok: "Jarraipena aktibatuta.",
       pending: "Aktibazioa zain: automatikoki berriro saiatuko da.",
@@ -820,6 +824,7 @@ const fr = {
     body: "Le suivi par satellite de cette parcelle peut démarrer. Les images seront récupérées depuis le semis ({{date}}).",
     activate: "Activer",
     skip: "Pas maintenant",
+    close: "Fermer",
     result: {
       ok: "Suivi activé.",
       pending: "Activation en attente : elle sera retentée automatiquement.",
@@ -929,6 +934,7 @@ const pt = {
     body: "O acompanhamento por satélite desta parcela pode começar. As imagens serão recuperadas desde a sementeira ({{date}}).",
     activate: "Ativar",
     skip: "Agora não",
+    close: "Fechar",
     result: {
       ok: "Acompanhamento ativado.",
       pending: "Ativação pendente: será repetida automaticamente.",

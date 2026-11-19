@@ -10,7 +10,7 @@ vi.mock('@nekazari/sdk', () => ({
 import { MonitoringPromptView } from './MonitoringPromptView';
 
 const view = (over: Record<string, unknown> = {}) => renderToStaticMarkup(
-  <MonitoringPromptView start="2026-11-18" busy={false} result={null} onActivate={() => {}} onSkip={() => {}} {...over} />);
+  <MonitoringPromptView start="2026-11-18" busy={false} result={null} onActivate={() => {}} onSkip={() => {}} onClose={() => {}} {...over} />);
 
 describe('MonitoringPromptView', () => {
   it('asks with the local sowing date and offers both actions', () => {
@@ -23,6 +23,12 @@ describe('MonitoringPromptView', () => {
   });
   it('busy disables activate', () => {
     expect(view({ busy: true })).toMatch(/id="monitoring-activate"[^>]*\sdisabled=""/);
+  });
+  it('with a result only a close button remains', () => {
+    const h = view({ result: 'forbidden', onClose: () => {} });
+    expect(h).toContain('monitoring.close');
+    expect(h).not.toContain('monitoring.activate');
+    expect(h).not.toContain('monitoring.skip');
   });
   it.each(['ok', 'pending', 'forbidden', 'error'])('shows the %s result', (r) => {
     expect(view({ result: r })).toContain(`monitoring.result.${r}`);

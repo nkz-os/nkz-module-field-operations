@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth, useTranslation } from '@nekazari/sdk';
 import { MonitoringPromptView } from './MonitoringPromptView';
-import { activateMonitoring, resolveMonitoringPrompt, type ActivationResult } from '../lib/monitoringPrompt';
+import { activateMonitoring, resolveMonitoringPrompt } from '../lib/monitoringPrompt';
+import { INITIAL_STEP, monitoringStep, type MonitoringAction, type MonitoringStepState } from '../lib/monitoringStep';
 import { API_ORIGIN } from '../lib/apiOrigin';
 import {
   bearerHeaders, buildRecordBody, canSubmit, cropLabel, cropNamesFromFarm, errorKey, selectTarget, targetsFor,
@@ -156,9 +157,14 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const [prompt, setPrompt] = useState<{ start: string; parcelId: string; message: string } | null>(null);
-  const [activation, setActivation] = useState<ActivationResult | null>(null);
-  const [activating, setActivating] = useState(false);
+  const [step, setStep] = useState<MonitoringStepState>(INITIAL_STEP);
+  const stepRef = useRef<MonitoringStepState>(INITIAL_STEP);
+  const dispatch = (a: MonitoringAction) => {
+    const r = monitoringStep(stepRef.current, a);
+    stepRef.current = r.state;
+    setStep(r.state);
+    if (r.notify) onRecorded(r.state.message);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,10 +209,10 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
         ? t('record.successHarvestCampaign', { crop, campaign: data.harvest_campaign })
         : t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', { crop });
       // Sowing only: offer satellite monitoring. Any failure or delay beyond the 5 s check carries on as before.
-      const parcelId = target?.parcelId ?? form.parcelId;
+      const parcelId = (data.parcel_id as string | undefined) ?? target?.parcelId ?? form.parcelId;
+      dispatch({ type: 'recorded', message, parcelId });
       const offer = await resolveMonitoringPrompt(kind, parcelId, user?.roles ?? []);
-      if (offer) setPrompt({ start: offer.start, parcelId, message });
-      else onRecorded(message);
+      dispatch({ type: 'checked', start: offer?.start ?? null });
     } catch {
       setError(t('record.error.generic'));
     } finally {
@@ -215,25 +221,23 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
   };
 
   const activate = async () => {
-    if (!prompt) return;
-    setActivating(true);
-    const result = await activateMonitoring(prompt.parcelId);
-    setActivation(result);
-    setActivating(false);
-    onRecorded(prompt.message);
+    dispatch({ type: 'activate' });
+    const result = await activateMonitoring(stepRef.current.parcelId);
+    dispatch({ type: 'activated', result });
   };
 
-  if (prompt) {
+  if (step.phase === 'prompt' || step.phase === 'activating' || step.phase === 'result') {
     return (
-      <MonitoringPromptView start={prompt.start} busy={activating} result={activation}
-        onActivate={() => void activate()} onSkip={() => onRecorded(prompt.message)} />
+      <MonitoringPromptView start={step.start ?? ''} busy={step.phase === 'activating'} result={step.result}
+        onActivate={() => void activate()} onSkip={() => dispatch({ type: 'close' })}
+        onClose={() => dispatch({ type: 'close' })} />
     );
   }
 
   return (
     <RecordFormView kind={kind} loading={loading} loadError={loadError} targets={targets} names={names}
       form={form} today={localToday()} saving={saving} error={error} onChange={setForm}
-      onSubmit={() => void submit()} onClose={onClose} onRetry={() => void load()} />
+      onSubmit={() => void submit()} onClose={() => (stepRef.current.phase === 'checking' ? dispatch({ type: 'close' }) : onClose())} onRetry={() => void load()} />
   );
 };
 
