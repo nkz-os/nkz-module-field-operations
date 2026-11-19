@@ -34,3 +34,13 @@ describe('woody species names', () => {
     });
   }
 });
+
+describe('monitoring prompt strings', () => {
+  const en = keys((resources.en as Record<string, unknown>).monitoring).sort();
+  it('en has the monitoring keys', () => expect(en.length).toBeGreaterThan(5));
+  for (const [lang, res] of Object.entries(resources)) {
+    it(`${lang} has every monitoring key of en`, () => {
+      expect(keys((res as Record<string, unknown>).monitoring).sort()).toEqual(en);
+    });
+  }
+});

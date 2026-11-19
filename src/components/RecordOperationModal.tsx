@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useTranslation } from '@nekazari/sdk';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth, useTranslation } from '@nekazari/sdk';
+import { MonitoringPromptView } from './MonitoringPromptView';
+import { activateMonitoring, resolveMonitoringPrompt } from '../lib/monitoringPrompt';
+import { INITIAL_STEP, monitoringStep, type MonitoringAction, type MonitoringStepState } from '../lib/monitoringStep';
 import { API_ORIGIN } from '../lib/apiOrigin';
 import {
   bearerHeaders, buildRecordBody, canSubmit, cropLabel, cropNamesFromFarm, errorKey, selectTarget, targetsFor,
@@ -153,6 +156,15 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
   const [form, setForm] = useState<RecordForm>({ ...EMPTY, date: localToday() });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [step, setStep] = useState<MonitoringStepState>(INITIAL_STEP);
+  const stepRef = useRef<MonitoringStepState>(INITIAL_STEP);
+  const dispatch = (a: MonitoringAction) => {
+    const r = monitoringStep(stepRef.current, a);
+    stepRef.current = r.state;
+    setStep(r.state);
+    if (r.notify) onRecorded(r.state.message);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,9 +205,14 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
       }
       const target = targets.find((x) => x.cropId === data.crop_id);
       const crop = target ? targetLabel(t, target, names, false) : (data.species ?? '');
-      onRecorded(kind === 'harvesting' && data.harvest_campaign
+      const message = kind === 'harvesting' && data.harvest_campaign
         ? t('record.successHarvestCampaign', { crop, campaign: data.harvest_campaign })
-        : t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', { crop }));
+        : t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', { crop });
+      // Sowing only: offer satellite monitoring. Any failure or delay beyond the 5 s check carries on as before.
+      const parcelId = (data.parcel_id as string | undefined) ?? target?.parcelId ?? form.parcelId;
+      dispatch({ type: 'recorded', message, parcelId });
+      const offer = await resolveMonitoringPrompt(kind, parcelId, user?.roles ?? []);
+      dispatch({ type: 'checked', start: offer?.start ?? null });
     } catch {
       setError(t('record.error.generic'));
     } finally {
@@ -203,10 +220,24 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
     }
   };
 
+  const activate = async () => {
+    dispatch({ type: 'activate' });
+    const result = await activateMonitoring(stepRef.current.parcelId);
+    dispatch({ type: 'activated', result });
+  };
+
+  if (step.phase === 'prompt' || step.phase === 'activating' || step.phase === 'result') {
+    return (
+      <MonitoringPromptView start={step.start ?? ''} busy={step.phase === 'activating'} result={step.result}
+        onActivate={() => void activate()} onSkip={() => dispatch({ type: 'close' })}
+        onClose={() => dispatch({ type: 'close' })} />
+    );
+  }
+
   return (
     <RecordFormView kind={kind} loading={loading} loadError={loadError} targets={targets} names={names}
       form={form} today={localToday()} saving={saving} error={error} onChange={setForm}
-      onSubmit={() => void submit()} onClose={onClose} onRetry={() => void load()} />
+      onSubmit={() => void submit()} onClose={() => (stepRef.current.phase === 'checking' ? dispatch({ type: 'close' }) : onClose())} onRetry={() => void load()} />
   );
 };
 
