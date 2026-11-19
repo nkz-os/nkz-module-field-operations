@@ -238,6 +238,18 @@ const en = {
       "invalid_variety": "The variety is too long (100 characters at most)."
     }
   },
+  monitoring: {
+    title: "Activate satellite monitoring?",
+    body: "Satellite monitoring of this parcel can start now. Images will be retrieved from the sowing date ({{date}}).",
+    activate: "Activate",
+    skip: "Not now",
+    result: {
+      ok: "Monitoring activated.",
+      pending: "Activation pending: it will be retried automatically.",
+      forbidden: "You do not have permission to activate it: ask your administrator.",
+      error: "Monitoring could not be activated."
+    }
+  },
 };
 
 const es = {
@@ -476,6 +488,18 @@ const es = {
       "invalid_variety": "La variedad es demasiado larga (100 caracteres como máximo)."
     }
   },
+  monitoring: {
+    title: "¿Activar el seguimiento por satélite?",
+    body: "Se puede iniciar el seguimiento por satélite de esta parcela. Se recuperarán las imágenes desde la siembra ({{date}}).",
+    activate: "Activar",
+    skip: "Ahora no",
+    result: {
+      ok: "Seguimiento activado.",
+      pending: "Activación pendiente: se reintentará automáticamente.",
+      forbidden: "No tienes permiso para activarlo: pídeselo al administrador.",
+      error: "No se pudo activar el seguimiento."
+    }
+  },
 };
 
 const ca = {
@@ -571,6 +595,18 @@ const ca = {
       "already_declared": "Aquesta plantació ja està declarada.",
       "overlaps_recorded_crop": "El dia de plantació no és posterior als cultius ja registrats en aquesta parcel·la. Indica un dia de plantació posterior.",
       "invalid_variety": "La varietat és massa llarga (100 caràcters com a màxim)."
+    }
+  },
+  monitoring: {
+    title: "Activar el seguiment per satèl·lit?",
+    body: "Es pot iniciar el seguiment per satèl·lit d'aquesta parcel·la. Es recuperaran les imatges des de la sembra ({{date}}).",
+    activate: "Activar",
+    skip: "Ara no",
+    result: {
+      ok: "Seguiment activat.",
+      pending: "Activació pendent: es reintentarà automàticament.",
+      forbidden: "No tens permís per activar-lo: demana-ho a l'administrador.",
+      error: "No s'ha pogut activar el seguiment."
     }
   },
 };
@@ -670,6 +706,18 @@ const eu = {
       "invalid_variety": "Barietatea luzeegia da (gehienez 100 karaktere)."
     }
   },
+  monitoring: {
+    title: "Satelite bidezko jarraipena aktibatu?",
+    body: "Partzela honen satelite bidezko jarraipena has daiteke. Irudiak ereitetik aurrera berreskuratuko dira ({{date}}).",
+    activate: "Aktibatu",
+    skip: "Orain ez",
+    result: {
+      ok: "Jarraipena aktibatuta.",
+      pending: "Aktibazioa zain: automatikoki berriro saiatuko da.",
+      forbidden: "Ez duzu aktibatzeko baimenik: eskatu administratzaileari.",
+      error: "Ezin izan da jarraipena aktibatu."
+    }
+  },
 };
 
 const fr = {
@@ -767,6 +815,18 @@ const fr = {
       "invalid_variety": "La variété est trop longue (100 caractères au maximum)."
     }
   },
+  monitoring: {
+    title: "Activer le suivi par satellite ?",
+    body: "Le suivi par satellite de cette parcelle peut démarrer. Les images seront récupérées depuis le semis ({{date}}).",
+    activate: "Activer",
+    skip: "Pas maintenant",
+    result: {
+      ok: "Suivi activé.",
+      pending: "Activation en attente : elle sera retentée automatiquement.",
+      forbidden: "Vous n'avez pas l'autorisation de l'activer : demandez-le à l'administrateur.",
+      error: "Le suivi n'a pas pu être activé."
+    }
+  },
 };
 
 const pt = {
@@ -862,6 +922,18 @@ const pt = {
       "already_declared": "Esta plantação já está declarada.",
       "overlaps_recorded_crop": "O dia de plantação não é posterior às culturas já registadas nesta parcela. Indique um dia de plantação posterior.",
       "invalid_variety": "A variedade é demasiado longa (no máximo 100 caracteres)."
+    }
+  },
+  monitoring: {
+    title: "Ativar o acompanhamento por satélite?",
+    body: "O acompanhamento por satélite desta parcela pode começar. As imagens serão recuperadas desde a sementeira ({{date}}).",
+    activate: "Ativar",
+    skip: "Agora não",
+    result: {
+      ok: "Acompanhamento ativado.",
+      pending: "Ativação pendente: será repetida automaticamente.",
+      forbidden: "Não tem permissão para o ativar: peça ao administrador.",
+      error: "Não foi possível ativar o acompanhamento."
     }
   },
 };

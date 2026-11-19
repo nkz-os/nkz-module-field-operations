@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useTranslation } from '@nekazari/sdk';
+import { useAuth, useTranslation } from '@nekazari/sdk';
+import { MonitoringPromptView } from './MonitoringPromptView';
+import { activateMonitoring, resolveMonitoringPrompt, type ActivationResult } from '../lib/monitoringPrompt';
 import { API_ORIGIN } from '../lib/apiOrigin';
 import {
   bearerHeaders, buildRecordBody, canSubmit, cropLabel, cropNamesFromFarm, errorKey, selectTarget, targetsFor,
@@ -153,6 +155,10 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
   const [form, setForm] = useState<RecordForm>({ ...EMPTY, date: localToday() });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [prompt, setPrompt] = useState<{ start: string; parcelId: string; message: string } | null>(null);
+  const [activation, setActivation] = useState<ActivationResult | null>(null);
+  const [activating, setActivating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,15 +199,36 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
       }
       const target = targets.find((x) => x.cropId === data.crop_id);
       const crop = target ? targetLabel(t, target, names, false) : (data.species ?? '');
-      onRecorded(kind === 'harvesting' && data.harvest_campaign
+      const message = kind === 'harvesting' && data.harvest_campaign
         ? t('record.successHarvestCampaign', { crop, campaign: data.harvest_campaign })
-        : t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', { crop }));
+        : t(kind === 'sowing' ? 'record.successSowing' : kind === 'uprooting' ? 'record.successUprooting' : 'record.successHarvest', { crop });
+      // Sowing only: offer satellite monitoring. Any failure or delay beyond the 5 s check carries on as before.
+      const parcelId = target?.parcelId ?? form.parcelId;
+      const offer = await resolveMonitoringPrompt(kind, parcelId, user?.roles ?? []);
+      if (offer) setPrompt({ start: offer.start, parcelId, message });
+      else onRecorded(message);
     } catch {
       setError(t('record.error.generic'));
     } finally {
       setSaving(false);
     }
   };
+
+  const activate = async () => {
+    if (!prompt) return;
+    setActivating(true);
+    const result = await activateMonitoring(prompt.parcelId);
+    setActivation(result);
+    setActivating(false);
+    onRecorded(prompt.message);
+  };
+
+  if (prompt) {
+    return (
+      <MonitoringPromptView start={prompt.start} busy={activating} result={activation}
+        onActivate={() => void activate()} onSkip={() => onRecorded(prompt.message)} />
+    );
+  }
 
   return (
     <RecordFormView kind={kind} loading={loading} loadError={loadError} targets={targets} names={names}
