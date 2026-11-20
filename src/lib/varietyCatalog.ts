@@ -24,9 +24,13 @@ export function canonicalVariety(text: string, entries: VarietyEntry[]): string 
   return find(text, entries)?.name ?? text;
 }
 
-/** A typed variety the catalog does not know (only once a non-empty list is loaded). */
-export function isOutsideCatalog(text: string, entries: VarietyEntry[]): boolean {
-  return entries.length > 0 && text.trim() !== '' && find(text, entries) === undefined;
+/** A typed variety the catalog does not know (only once a non-empty list is loaded). While `typing`,
+ *  the start of a catalog name still counts as known, so the notice does not flash at every letter. */
+export function isOutsideCatalog(text: string, entries: VarietyEntry[], typing = false): boolean {
+  if (entries.length === 0 || text.trim() === '' || find(text, entries) !== undefined) return false;
+  if (!typing) return true;
+  const key = normalizeVarietyKey(text);
+  return !entries.some((e) => e.key.startsWith(key));
 }
 
 /** Catalog of a crop; [] on any failure, so the field stays free text. */

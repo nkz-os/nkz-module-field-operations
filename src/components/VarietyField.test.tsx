@@ -31,6 +31,14 @@ describe('VarietyField', () => {
   });
 });
 
+describe('VarietyField while typing', () => {
+  it('no notice for the start of a catalog name while the field has focus', () => {
+    const h = renderToStaticMarkup(<VarietyField id="v" label="L" value="FIL" entries={[FILON]} notice="NOT_IN_CATALOG"
+      onChange={() => {}} typing />);
+    expect(h).not.toContain('NOT_IN_CATALOG');
+  });
+});
+
 describe('varietyAfterBlur', () => {
   it('returns the catalog spelling only when it differs', () => {
     expect(varietyAfterBlur('filon', [FILON])).toBe('FILON');

@@ -35,6 +35,11 @@ describe('isOutsideCatalog', () => {
   it('is true for a non-blank text outside a loaded list', () => {
     expect(isOutsideCatalog('Nueva X', [FILON])).toBe(true);
   });
+  it('is false while the text is still the start of a catalog variety (typing)', () => {
+    for (const partial of ['F', 'fi', 'FIL', 'filo']) expect(isOutsideCatalog(partial, [FILON], true)).toBe(false);
+    expect(isOutsideCatalog('Filom', [FILON], true)).toBe(true);
+    expect(isOutsideCatalog('FIL', [FILON])).toBe(true); // left the field on a partial name
+  });
   it('is false when the text matches, the list is empty or the text is blank', () => {
     expect(isOutsideCatalog('filon', [FILON])).toBe(false);
     expect(isOutsideCatalog('Nueva X', [])).toBe(false);
