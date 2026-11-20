@@ -150,6 +150,19 @@ def _common(body: dict, tenant_id: str) -> str | None:
     return f"urn:ngsi-ld:AgriParcelOperation:{tenant_id}:{client_id}" if client_id else None
 
 
+async def _sown_variety_to_crop(client, tenant_id: str, crops: list[dict], crop_id: str, variety: str) -> None:
+    """The crop cycle reads the variety on the crop, not on the sowing: write the sown one there
+    when it differs. The record stands if this write fails."""
+    crop = next((c for c in crops if c.get("id") == crop_id), {})
+    current = crop.get("variety")
+    if (current.get("value") if isinstance(current, dict) else current) == variety:
+        return
+    try:
+        await client.append_entity_attrs(crop_id, {"variety": {"type": "Property", "value": variety}})
+    except Exception as exc:  # noqa: BLE001 — the sowing is recorded; the variety can be set again
+        logger.warning("record: variety not written tenant=%s crop=%s: %s", tenant_id, crop_id, exc)
+
+
 async def _crop_data(client, parcel_urn: str):
     try:
         return await load_crop_data(client, parcel_urn)
@@ -356,6 +369,9 @@ async def record_operation(request: Request, body: dict):
             raise HTTPException(status_code=503, detail={"code": "store_unavailable", "detail": str(exc)})
         logger.info("record: %s tenant=%s parcel=%s crop=%s op=%s", op_type, tenant_id, parcel_urn,
                     match.crop_id, entity.get("id"))
+
+        if op_type == "sowing":
+            await _sown_variety_to_crop(client, tenant_id, crops, match.crop_id, attrs["variety"])
 
         reconciled = False
         if config.CROP_CYCLES_WRITER_ENABLED:
