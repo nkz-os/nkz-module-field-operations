@@ -4,6 +4,8 @@ import { MonitoringPromptView } from './MonitoringPromptView';
 import { activateMonitoring, resolveMonitoringPrompt } from '../lib/monitoringPrompt';
 import { INITIAL_STEP, monitoringStep, type MonitoringAction, type MonitoringStepState } from '../lib/monitoringStep';
 import { API_ORIGIN } from '../lib/apiOrigin';
+import { useVarietyCatalog, withCanonicalVariety, type VarietyEntry } from '../lib/varietyCatalog';
+import { VarietyField } from './VarietyField';
 import {
   bearerHeaders, buildRecordBody, canSubmit, cropLabel, cropNamesFromFarm, errorKey, selectTarget, targetsFor,
   type ParcelView, type RecordForm, type RecordKind, type RecordTarget,
@@ -34,6 +36,8 @@ export interface RecordFormViewProps {
   onSubmit: () => void;
   onClose: () => void;
   onRetry: () => void;
+  /** Catalog names of the chosen crop (sowing); [] keeps the variety a plain text field. */
+  varietyEntries?: VarietyEntry[];
 }
 
 export function targetLabel(t: (k: string, o?: Record<string, unknown>) => string, target: RecordTarget,
@@ -86,10 +90,9 @@ export function RecordFormView(p: RecordFormViewProps) {
         </label>
         {sowing ? (
           <>
-            <label className="block">
-              <span className={LABEL}>{t('record.variety')}</span>
-              <input id="record-variety" type="text" value={p.form.variety} onChange={set('variety')} className={INPUT} />
-            </label>
+            <VarietyField id="record-variety" label={t('record.variety')} value={p.form.variety}
+              entries={p.varietyEntries ?? []} notice={t('record.varietyNotInCatalog')}
+              onChange={(variety) => p.onChange({ ...p.form, variety })} />
             <label className="block">
               <span className={LABEL}>{t('record.seedingRate')}</span>
               <input id="record-seeding-rate" type="text" inputMode="decimal" value={p.form.seedingRate}
@@ -157,6 +160,8 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const sowingCrop = kind === 'sowing' ? targets.find((x) => x.cropId === form.cropId)?.species ?? null : null;
+  const varietyEntries = useVarietyCatalog(sowingCrop);
   const [step, setStep] = useState<MonitoringStepState>(INITIAL_STEP);
   const stepRef = useRef<MonitoringStepState>(INITIAL_STEP);
   const dispatch = (a: MonitoringAction) => {
@@ -196,7 +201,7 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
     try {
       const resp = await fetch(`${API_BASE}/operations/record`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildRecordBody(kind, form)),
+        body: JSON.stringify(buildRecordBody(kind, withCanonicalVariety(form, varietyEntries))),
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.status !== 201) {
@@ -236,7 +241,7 @@ const RecordOperationModal: React.FC<Props> = ({ kind, onClose, onRecorded }) =>
 
   return (
     <RecordFormView kind={kind} loading={loading} loadError={loadError} targets={targets} names={names}
-      form={form} today={localToday()} saving={saving} error={error} onChange={setForm}
+      form={form} today={localToday()} saving={saving} error={error} onChange={setForm} varietyEntries={varietyEntries}
       onSubmit={() => void submit()} onClose={() => (stepRef.current.phase === 'checking' ? dispatch({ type: 'close' }) : onClose())} onRetry={() => void load()} />
   );
 };

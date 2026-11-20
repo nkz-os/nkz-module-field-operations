@@ -58,6 +58,14 @@ describe('RecordFormView', () => {
     expect(view({ form: { parcelId: 'p', cropId: 'c1', date: '2026-11-20', variety: '', seedingRate: '180',
       sowingMethod: '', harvestedWeight: '' } })).not.toMatch(/id="record-submit"[^>]*\sdisabled=""/);
   });
+  it('sowing: the variety field suggests the catalog and flags an unknown variety', () => {
+    const entries = [{ name: 'FILON', key: 'FILON', cerealType: 'winter' as const }];
+    const form = { parcelId: 'p', cropId: 'c1', date: '2026-11-20', variety: 'Nueva X', seedingRate: '', sowingMethod: '', harvestedWeight: '' };
+    const h = view({ varietyEntries: entries, form });
+    expect(h).toContain('<datalist id="record-variety-list"><option value="FILON"></option></datalist>');
+    expect(h).toContain('record.varietyNotInCatalog');
+    expect(view({ form })).not.toContain('record.varietyNotInCatalog');
+  });
   it('load error offers a retry', () => {
     expect(view({ loadError: true })).toContain('record.loadError');
   });

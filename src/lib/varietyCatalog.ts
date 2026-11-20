@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { API_ORIGIN } from './apiOrigin';
 import { bearerHeaders } from './recordModel';
 
@@ -48,4 +49,33 @@ export async function fetchVarietyCatalog(crop: string, fetchImpl: typeof fetch 
   } catch {
     return [];
   }
+}
+
+/** The form with its variety in the catalog spelling (same object when nothing changes). */
+export function withCanonicalVariety<T extends { variety: string }>(form: T, entries: VarietyEntry[]): T {
+  const variety = canonicalVariety(form.variety, entries);
+  return variety === form.variety ? form : { ...form, variety };
+}
+
+/** Loads one crop's catalog at a time: clears at once on every change and drops answers for an older crop. */
+export function createCatalogLoader(fetchFn: (crop: string) => Promise<VarietyEntry[]>,
+  onEntries: (entries: VarietyEntry[]) => void): { load: (crop: string | null) => Promise<void> } {
+  let token = 0;
+  return {
+    async load(crop) {
+      const mine = ++token;
+      onEntries([]);
+      if (!crop) return;
+      const entries = await fetchFn(crop);
+      if (mine === token) onEntries(entries);
+    },
+  };
+}
+
+/** The catalog of the chosen crop for a variety field; [] while loading, without a crop or on failure. */
+export function useVarietyCatalog(crop: string | null): VarietyEntry[] {
+  const [entries, setEntries] = useState<VarietyEntry[]>([]);
+  const loader = useRef(createCatalogLoader((c) => fetchVarietyCatalog(c), setEntries));
+  useEffect(() => { void loader.current.load(crop); }, [crop]);
+  return entries;
 }

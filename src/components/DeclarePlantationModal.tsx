@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@nekazari/sdk';
 import { API_ORIGIN } from '../lib/apiOrigin';
+import { useVarietyCatalog, withCanonicalVariety, type VarietyEntry } from '../lib/varietyCatalog';
+import { VarietyField } from './VarietyField';
 import {
   buildPlantationBody, canDeclare, plantationErrorKey, plantationParcels, type ParcelView, type PlantationForm,
 } from '../lib/recordModel';
@@ -25,6 +27,8 @@ export interface DeclarePlantationViewProps {
   onSubmit: () => void;
   onClose: () => void;
   onRetry: () => void;
+  /** Catalog names of the chosen species; [] keeps the variety a plain text field. */
+  varietyEntries?: VarietyEntry[];
 }
 
 /** The day must fall in the planting year (and not after today); no bounds until the year is a full year. */
@@ -78,10 +82,9 @@ export function DeclarePlantationView(p: DeclarePlantationViewProps) {
           <span className={LABEL}>{t('plantation.day')}</span>
           <input id="plantation-date" type="date" {...dateBounds(p.form.year, p.today)} value={p.form.date} onChange={set('date')} className={INPUT} />
         </label>
-        <label className="block">
-          <span className={LABEL}>{t('plantation.variety')}</span>
-          <input id="plantation-variety" type="text" value={p.form.variety} onChange={set('variety')} className={INPUT} />
-        </label>
+        <VarietyField id="plantation-variety" label={t('plantation.variety')} value={p.form.variety}
+          entries={p.varietyEntries ?? []} notice={t('plantation.varietyNotInCatalog')}
+          onChange={(variety) => p.onChange({ ...p.form, variety })} />
         {p.error && <p role="alert" className="text-sm text-nkz-danger">{p.error}</p>}
       </div>
     );
@@ -125,6 +128,7 @@ const DeclarePlantationModal: React.FC<Props> = ({ onClose, onDeclared }) => {
   const [form, setForm] = useState<PlantationForm>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const varietyEntries = useVarietyCatalog(form.eppo || null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,7 +153,7 @@ const DeclarePlantationModal: React.FC<Props> = ({ onClose, onDeclared }) => {
     try {
       const resp = await fetch(`${API_BASE}/parcels/${encodeURIComponent(form.parcelId)}/plantations`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPlantationBody(form)),
+        body: JSON.stringify(buildPlantationBody(withCanonicalVariety(form, varietyEntries))),
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.status !== 201) {
@@ -166,7 +170,7 @@ const DeclarePlantationModal: React.FC<Props> = ({ onClose, onDeclared }) => {
 
   return (
     <DeclarePlantationView loading={loading} loadError={loadError} parcels={parcels} form={form}
-      today={localToday()} saving={saving} error={error}
+      today={localToday()} saving={saving} error={error} varietyEntries={varietyEntries}
       onChange={setForm} onSubmit={() => void submit()} onClose={onClose} onRetry={() => void load()} />
   );
 };
