@@ -24,6 +24,14 @@ describe('DeclarePlantationView', () => {
     expect(h).toContain('id="plantation-year"');
     expect(h).toContain('id="plantation-variety"');
   });
+  it('the variety field suggests the catalog and flags an unknown variety', () => {
+    const entries = [{ name: 'ARBEQUINA', key: 'ARBEQUINA', cerealType: null }];
+    const form = { parcelId: 'p', eppo: 'OLVEU', year: '2015', date: '', variety: 'Nueva X' };
+    const h = view({ varietyEntries: entries, form });
+    expect(h).toContain('<datalist id="plantation-variety-list"><option value="ARBEQUINA"></option></datalist>');
+    expect(h).toContain('plantation.varietyNotInCatalog');
+    expect(view({ form })).not.toContain('plantation.varietyNotInCatalog');
+  });
   it('submit stays disabled until parcel, species and a 4-digit year are set', () => {
     expect(view({})).toMatch(/id="plantation-submit"[^>]*\sdisabled=""/);
     expect(view({ form: { parcelId: 'p', eppo: 'OLVEU', year: '2015', date: '', variety: '' } }))
