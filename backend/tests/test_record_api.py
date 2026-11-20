@@ -35,6 +35,11 @@ class FakeOrion:
             return self.parcels[offset:offset + limit]
         return self.crops if type == "AgriCrop" else self.ops
 
+    async def append_entity_attrs(self, eid, attrs, overwrite=True):
+        if getattr(self, "append_fails", False):
+            raise httpx.ConnectError("orion down")
+        self.appended = [*getattr(self, "appended", []), (eid, attrs)]
+
     async def close(self):
         pass
 
@@ -652,3 +657,42 @@ def test_scouting_duplicate_returns_same_stage(env):
     assert second.status_code == 200 and second.json()["duplicate"] is True
     assert second.json()["phenologicalStage"] == first.json()["phenologicalStage"] == "05"
     assert len(env["created"]) == 1
+
+
+# ---- the sown variety reaches the crop (the cycle reads it there) ----
+def test_a_typed_variety_is_written_to_the_crop_it_lands_on(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow(variety="Califa"))
+    assert r.status_code == 201, r.text
+    assert env["orion"].appended == [(PLANNED["id"], {"variety": {"type": "Property", "value": "Califa"}})]
+
+
+def test_the_planned_variety_is_not_rewritten_when_the_sowing_keeps_it(env):
+    r = TestClient(app).post(URL, headers=H, json=_sow())
+    assert r.status_code == 201, r.text
+    assert getattr(env["orion"], "appended", []) == []
+
+
+def test_a_crop_without_variety_gets_the_sown_one(env):
+    env["orion"] = FakeOrion([{k: v for k, v in PLANNED.items() if k != "variety"}])
+    r = TestClient(app).post(URL, headers=H, json=_sow(variety="FILON"))
+    assert r.status_code == 201, r.text
+    assert env["orion"].appended == [(PLANNED["id"], {"variety": {"type": "Property", "value": "FILON"}})]
+
+
+def test_a_failed_variety_write_keeps_the_record(env):
+    env["orion"].append_fails = True
+    r = TestClient(app).post(URL, headers=H, json=_sow(variety="Califa"))
+    assert r.status_code == 201, r.text
+    assert env["created"] and env["reconciled"] == [("tenant-a", P)]
+
+
+def test_a_harvest_does_not_touch_the_variety(env):
+    sown = dict(PLANNED, status="active", actualPlantingDate="2026-11-10")
+    sowing = {"id": "urn:ngsi-ld:AgriParcelOperation:t:s1", "type": "AgriParcelOperation", "hasAgriParcel": P,
+              "operationType": "sowing", "status": "completed", "startedAt": "2026-11-10T12:00:00Z",
+              "cropType": "TRZAX", "variety": "KWS KEITUM"}
+    env["orion"] = FakeOrion([sown], [sowing])
+    r = TestClient(app).post(URL, headers=H, json={"parcel_id": P, "operation_type": "harvesting",
+                                                   "date": "2026-11-19", "harvestedWeight": 5000})
+    assert r.status_code == 201, r.text
+    assert getattr(env["orion"], "appended", []) == []
