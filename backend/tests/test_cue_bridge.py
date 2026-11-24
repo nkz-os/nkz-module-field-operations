@@ -80,7 +80,11 @@ def test_siex_register_uses_prefixed_path_and_internal_auth():
     _reset()
     entity = {
         "id": "urn:ngsi-ld:AgriParcelOperation:acmefarm:op1",
+        "hasAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:acmefarm:p1"},
         "operationType": {"value": "spraying"},
+        "productName": {"value": "Fungicida X"},
+        "productRegistryRef": {"value": "ES-12345"},
+        "productRate": {"value": 1.5},
         "startedAt": {"value": {"@value": "2026-06-30T08:00:00Z"}},
     }
     with patch.object(cb.httpx, "AsyncClient", _FakeAsyncClient), \
@@ -95,3 +99,37 @@ def test_siex_register_uses_prefixed_path_and_internal_auth():
     assert method == "POST"
     assert url.endswith("/api/modules/cue/tratamientos")
     assert headers["X-Internal-Service-Secret"] == cb.INTERNAL_SERVICE_SECRET
+    assert body["fecha"] == "2026-06-30"
+    assert body["parcela_id"] == "urn:ngsi-ld:AgriParcel:acmefarm:p1"
+    assert body["producto_ropo"] == "ES-12345"
+    assert body["validar"] is False
+
+
+def test_siex_register_fertilization_maps_cue_fields():
+    _reset()
+    entity = {
+        "id": "urn:ngsi-ld:AgriParcelOperation:acmefarm:op2",
+        "hasAgriParcel": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:acmefarm:p1"},
+        "operationType": {"value": "fertilization"},
+        "fertilizerType": {"value": "urea"},
+        "fertilizerRate": {"value": 200},
+        "nitrogenContent": {"value": 46},
+        "phosphorusPentoxideContent": {"value": 0},
+        "potassiumOxideContent": {"value": 0},
+        "startedAt": {"value": {"@value": "2026-06-30T08:00:00Z"}},
+    }
+    with patch.object(cb.httpx, "AsyncClient", _FakeAsyncClient), \
+         patch("app.orion_ops.get_entity", return_value=entity), \
+         patch("app.orion_ops.update_entity_attrs", return_value=None):
+        r = _client().post(
+            "/api/field-operations/cue/operations/op2/registrar-siex",
+            headers={"X-User-ID": "u1", "X-Tenant-ID": "acmefarm", "X-User-Roles": "field_manager"},
+        )
+    assert r.status_code == 200
+    method, url, body, headers = _FakeAsyncClient.calls[-1]
+    assert method == "POST"
+    assert url.endswith("/api/modules/cue/fertilizaciones")
+    assert body["tipo"] == "urea"
+    assert body["fecha"] == "2026-06-30"
+    assert body["contenido_n_pct"] == 46
+    assert body["parcela_id"] == "urn:ngsi-ld:AgriParcel:acmefarm:p1"

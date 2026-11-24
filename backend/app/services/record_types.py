@@ -155,6 +155,12 @@ def _fertilization(body: dict) -> dict:
             grade = [f"{normalized[n]['value']:g}" if n in normalized else "?" for n in (
                 "nitrogenContent", "phosphorusPentoxideContent", "potassiumOxideContent")]
             attrs["fertilizerComposition"] = "-".join(grade)
+    for opt_text in ("fertilizerRegistryRef", "incorporationMethod", "organicOriginRega"):
+        val = _text(opt_text, body.get(opt_text), required=False)
+        if val:
+            attrs[opt_text] = val
+    if not _empty(body.get("incorporationHours")):
+        attrs["incorporationHours"] = _round(_number("incorporationHours", body["incorporationHours"]))
     return attrs
 
 
@@ -166,6 +172,16 @@ def _spraying(body: dict) -> dict:
     target = _text("target", body.get("target"), required=False)
     if target:
         attrs["target"] = target
+    for opt_text in (
+        "productRegistryRef", "equipmentRoma", "applicatorRopo",
+        "advisorRopo", "gipJustification", "batchNumber", "efficacy",
+    ):
+        val = _text(opt_text, body.get(opt_text), required=False)
+        if val:
+            attrs[opt_text] = val
+    for opt_num in ("treatedAreaHa", "sprayVolumeLHa"):
+        if not _empty(body.get(opt_num)):
+            attrs[opt_num] = _round(_number(opt_num, body[opt_num]))
     return attrs
 
 
@@ -231,6 +247,10 @@ def build_attrs(operation_type: str, body: dict) -> dict:
     if operation_type == "irrigation":
         _require(body, "waterPerHectare")
         attrs = {"waterPerHectare": _round(_number("waterPerHectare", body["waterPerHectare"]))}
+        for opt_text in ("waterSource", "irrigationSystem"):
+            val = _text(opt_text, body.get(opt_text), required=False)
+            if val:
+                attrs[opt_text] = val
     elif operation_type == "fertilization":
         attrs = _fertilization(body)
     elif operation_type == "spraying":
