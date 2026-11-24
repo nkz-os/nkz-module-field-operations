@@ -103,27 +103,46 @@ def _build_siex_payload(entity: dict) -> dict:
         attr = entity.get(field)
         return attr.get("value", default) if isinstance(attr, dict) else default
 
+    def rel(field: str) -> str:
+        attr = entity.get(field)
+        if isinstance(attr, dict):
+            return attr.get("object", "") or ""
+        return str(attr or "")
+
     op_type = entity.get("operationType", {}).get("value", "")
     started = entity.get("startedAt", {}).get("value", {})
-    fecha = started.get("@value", "") if isinstance(started, dict) else ""
+    raw_date = started.get("@value", "") if isinstance(started, dict) else str(started or "")
+    fecha = raw_date[:10] if raw_date else ""
+    parcela_id = rel("hasAgriParcel") or rel("refAgriParcel")
 
     if op_type == "spraying":
         return {
+            "parcela_id": parcela_id,
+            "nombre": val("productName", ""),
             "producto_ropo": val("productRegistryRef", ""),
             "dosis": val("productRate", 0),
-            "unidad_dosis": "kg/ha",
-            "fecha_aplicacion": fecha,
+            "unidad_dosis": val("productRateUnit", "L/ha"),
+            "plaga": val("targetPest", ""),
+            "equipo": val("equipmentRef", ""),
+            "aplicador": val("operator", ""),
+            "fecha": fecha,
+            "validar": False,
             "metodo_aplicacion": val("applicationMethod", "foliar"),
             "velocidad_viento": val("windSpeedAtApplication"),
             "observaciones": f"Auto-generado desde AgriParcelOperation {entity.get('id','')}",
         }
     elif op_type == "fertilization":
         return {
+            "parcela_id": parcela_id,
+            "nombre": val("fertilizerType", ""),
+            "tipo": val("fertilizerType", ""),
             "producto_fertilizante": val("fertilizerRegistryRef", ""),
             "dosis_kg_ha": val("fertilizerRate", 0),
-            "tipo_fertilizante": val("fertilizerType", ""),
+            "contenido_n_pct": val("nitrogenContent", 0),
+            "contenido_p_pct": val("phosphorusPentoxideContent", 0),
+            "contenido_k_pct": val("potassiumOxideContent", 0),
             "composicion": val("fertilizerComposition", ""),
             "organico": val("organicFertilizer", False),
-            "fecha_aplicacion": fecha,
+            "fecha": fecha,
         }
     return {}
