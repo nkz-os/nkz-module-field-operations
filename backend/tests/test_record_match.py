@@ -56,6 +56,26 @@ def test_harvest_of_a_crop_never_sown_is_refused():
     assert not m.ok and m.reason == "not_sown"
 
 
+# A plan stores no end date for an annual main crop: nobody is asked for one.
+OPEN = {**{k: v for k, v in PLANNED.items() if k != "expectedTerminationDate"}, "cropLifecycle": "annual"}
+
+
+def test_harvest_of_a_sown_annual_planned_without_an_end_lands_on_it():
+    m = match_record(P, [OPEN], [_op("sowing", "2026-11-10")], "harvesting", date(2027, 7, 2), date(2027, 7, 3))
+    assert m.ok and m.crop_id == OPEN["id"] and m.campaign == 2027
+
+
+def test_second_harvest_day_of_an_annual_planned_without_an_end_is_refused():
+    ops = [_op("sowing", "2026-11-10"), _op("harvesting", "2027-07-02")]
+    m = match_record(P, [OPEN], ops, "harvesting", date(2027, 7, 4), date(2027, 7, 5))
+    assert not m.ok and m.reason == "already_recorded"
+
+
+def test_harvest_of_an_annual_planned_without_an_end_and_never_sown_is_refused():
+    m = match_record(P, [OPEN], [], "harvesting", date(2027, 7, 2), date(2027, 7, 3))
+    assert not m.ok and m.reason == "no_crop_to_close"
+
+
 def test_harvest_without_any_crop_is_refused():
     m = match_record(P, [], [], "harvesting", date(2027, 7, 2), date(2027, 7, 3))
     assert not m.ok and m.reason == "no_crop_to_close"
